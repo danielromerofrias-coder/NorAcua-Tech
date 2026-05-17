@@ -3499,12 +3499,45 @@ function App() {
             /*#__PURE__*/React.createElement(Btn, {
               sm: true, variant: "success",
               disabled: !hayMarcados,
-              onClick: () => setRegistros(rs => rs.map(x => x.id === r.id ? {
-                ...x,
-                lineasGrupo: x.lineasGrupo.map(l => l._certifCheck && !l.certifAprobada
-                  ? { ...l, certifEnviada: true, certifAprobada: false, cantCertif: l._cantCertif ?? l.cantidad, _certifCheck: false }
-                  : l)
-              } : x))
+              onClick: async () => {
+                // Reload from Supabase to avoid overwriting admin approvals
+                try {
+                  const fresh = await ld(SK.regs, null);
+                  if (fresh) {
+                    setRegistros(fresh.map(x => {
+                      if (x.id === r.id) {
+                        // Merge: apply our certifEnviada on top of fresh data
+                        return {
+                          ...x,
+                          lineasGrupo: x.lineasGrupo.map((l, idx) => {
+                            const local = rs => rs.find(rr => rr.id === r.id)?.lineasGrupo?.[idx];
+                            const localL = registros.find(rr => rr.id === r.id)?.lineasGrupo?.[idx];
+                            if (localL?._certifCheck && !l.certifAprobada) {
+                              return { ...l, certifEnviada: true, certifAprobada: false, cantCertif: localL._cantCertif ?? l.cantidad, _certifCheck: false };
+                            }
+                            return l;
+                          })
+                        };
+                      }
+                      return x;
+                    }));
+                  } else {
+                    setRegistros(rs => rs.map(x => x.id === r.id ? {
+                      ...x,
+                      lineasGrupo: x.lineasGrupo.map(l => l._certifCheck && !l.certifAprobada
+                        ? { ...l, certifEnviada: true, certifAprobada: false, cantCertif: l._cantCertif ?? l.cantidad, _certifCheck: false }
+                        : l)
+                    } : x));
+                  }
+                } catch(e) {
+                  setRegistros(rs => rs.map(x => x.id === r.id ? {
+                    ...x,
+                    lineasGrupo: x.lineasGrupo.map(l => l._certifCheck && !l.certifAprobada
+                      ? { ...l, certifEnviada: true, certifAprobada: false, cantCertif: l._cantCertif ?? l.cantidad, _certifCheck: false }
+                      : l)
+                  } : x));
+                }
+              }
             }, "📤 Enviar certificación")
           ),
           r.esGrupo && lineas.map((l, i) => {
