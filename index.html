@@ -61,7 +61,12 @@ async function sv(key, d) {
     console.error(e);
   }
 }
-const APP_VERSION = "2.2"; // Actualizar en cada release importante
+const APP_VERSION = "2.2";
+if (typeof window !== "undefined" && window.sessionStorage) {
+  const cv = window.sessionStorage.getItem("na_version");
+  if (cv && cv !== APP_VERSION) { window.sessionStorage.setItem("na_version", APP_VERSION); window.location.reload(true); }
+  else if (!cv) { window.sessionStorage.setItem("na_version", APP_VERSION); }
+} // Actualizar en cada release importante
 
 const SK_LAST_LOGIN = "na-last-login";
 const SK = {
