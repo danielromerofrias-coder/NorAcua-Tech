@@ -1698,6 +1698,11 @@ function App() {
   const toggleCard = id => setCollapsedIds(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const [certCollapsed, setCertCollapsed] = useState(new Set());
   const toggleCert = id => setCertCollapsed(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const [fCertEstado, setFCertEstado] = useState("");
+  const [fCertProy, setFCertProy] = useState("");
+  const [fCertSite, setFCertSite] = useState("");
+  const [fCertDesde, setFCertDesde] = useState("");
+  const [fCertHasta, setFCertHasta] = useState("");
   const [mEReg, setMEReg] = useState(null);
   const [mEConc, setMEConc] = useState(null);
   const [mTrab, setMTrab] = useState(false);
@@ -3438,62 +3443,125 @@ function App() {
       sz: 13
     }))))));
   })), view === "revision" && /*#__PURE__*/React.createElement(React.Fragment, null,
-  /*#__PURE__*/React.createElement("h2", {
-    style: { fontSize: 17, fontWeight: 700, marginBottom: 4 }
-  }, "Certificación"),
-  /*#__PURE__*/React.createElement("p", {
-    style: { fontSize: 12, color: C.muted, marginBottom: 14 }
-  }, "Activa los ítems completados e indica las cantidades reales"),
+  /*#__PURE__*/React.createElement("h2", { style: { fontSize: 17, fontWeight: 700, marginBottom: 4 } }, "Certificación"),
+  /*#__PURE__*/React.createElement("p", { style: { fontSize: 12, color: C.muted, marginBottom: 10 } }, "Activa los ítems completados e indica las cantidades reales"),
+  /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 } },
+    /*#__PURE__*/React.createElement("select", {
+      value: fCertEstado, onChange: e => setFCertEstado(e.target.value),
+      style: { padding: "5px 8px", border: "1px solid " + C.border, borderRadius: 5, fontSize: 12, fontFamily: "inherit", background: C.inputBg }
+    },
+      /*#__PURE__*/React.createElement("option", { value: "" }, "Todos los estados"),
+      /*#__PURE__*/React.createElement("option", { value: "aprobado" }, "Aprobadas"),
+      /*#__PURE__*/React.createElement("option", { value: "cert_parcial" }, "Certif. parcial"),
+      /*#__PURE__*/React.createElement("option", { value: "cert_total" }, "Certif. total"),
+      /*#__PURE__*/React.createElement("option", { value: "finalizado" }, "Finalizadas")
+    ),
+    /*#__PURE__*/React.createElement("select", {
+      value: fCertProy, onChange: e => setFCertProy(e.target.value),
+      style: { padding: "5px 8px", border: "1px solid " + C.border, borderRadius: 5, fontSize: 12, fontFamily: "inherit", background: C.inputBg }
+    },
+      /*#__PURE__*/React.createElement("option", { value: "" }, "Todos los proyectos"),
+      [...new Set(registros.filter(r => r.estado === "aprobado").map(r => r.proyectoId))].map(pid => {
+        const p = gP(pid); return p ? /*#__PURE__*/React.createElement("option", { key: pid, value: pid }, p.nombre) : null;
+      })
+    ),
+    /*#__PURE__*/React.createElement("select", {
+      value: fCertSite, onChange: e => setFCertSite(e.target.value),
+      style: { padding: "5px 8px", border: "1px solid " + C.border, borderRadius: 5, fontSize: 12, fontFamily: "inherit", background: C.inputBg }
+    },
+      /*#__PURE__*/React.createElement("option", { value: "" }, "Todas las ES"),
+      [...new Set(registros.filter(r => r.estado === "aprobado").map(r => gP(r.proyectoId)?.estacion).filter(Boolean))].map(es =>
+        /*#__PURE__*/React.createElement("option", { key: es, value: es }, es)
+      )
+    ),
+    /*#__PURE__*/React.createElement("input", {
+      type: "date", value: fCertDesde, onChange: e => setFCertDesde(e.target.value),
+      style: { padding: "5px 8px", border: "1px solid " + C.border, borderRadius: 5, fontSize: 12, fontFamily: "inherit", background: C.inputBg },
+      placeholder: "Desde"
+    }),
+    /*#__PURE__*/React.createElement("input", {
+      type: "date", value: fCertHasta, onChange: e => setFCertHasta(e.target.value),
+      style: { padding: "5px 8px", border: "1px solid " + C.border, borderRadius: 5, fontSize: 12, fontFamily: "inherit", background: C.inputBg },
+      placeholder: "Hasta"
+    }),
+    (fCertEstado || fCertProy || fCertSite || fCertDesde || fCertHasta) && /*#__PURE__*/React.createElement("button", {
+      onClick: () => { setFCertEstado(""); setFCertProy(""); setFCertSite(""); setFCertDesde(""); setFCertHasta(""); },
+      style: { padding: "5px 10px", border: "1px solid " + C.border, borderRadius: 5, fontSize: 12, background: "none", cursor: "pointer", color: C.muted }
+    }, "✕ Limpiar")
+  ),
   (() => {
-    const misAprobadas = registros.filter(r =>
-      r.estado === "aprobado" &&
-      (r.trabajador === user?.nombre || r.creadoPor === user?.nombre ||
-       r.trabajador === user?.id || r.creadoPor === user?.id)
-    );
+    const misAprobadas = registros.filter(r => {
+      if (r.estado !== "aprobado") return false;
+      if (!(r.trabajador === user?.nombre || r.creadoPor === user?.nombre || r.trabajador === user?.id || r.creadoPor === user?.id)) return false;
+      if (fCertProy && r.proyectoId !== fCertProy) return false;
+      const proy = gP(r.proyectoId);
+      if (fCertSite && proy?.estacion !== fCertSite) return false;
+      if (fCertDesde && r.fecha < fCertDesde) return false;
+      if (fCertHasta && r.fecha > fCertHasta) return false;
+      if (fCertEstado) {
+        const lineas = r.lineasGrupo || [];
+        const allAprob = lineas.length > 0 && lineas.every(l => l.certifAprobada);
+        const esFinalizado = r.estadoCertif === "finalizado" || allAprob;
+        if (fCertEstado === "finalizado" && !esFinalizado) return false;
+        if (fCertEstado === "aprobado" && (r.estadoCertif || esFinalizado)) return false;
+        if (fCertEstado === "cert_parcial" && r.estadoCertif !== "cert_parcial") return false;
+        if (fCertEstado === "cert_total" && r.estadoCertif !== "cert_total") return false;
+      }
+      return true;
+    });
     if (!misAprobadas.length) return /*#__PURE__*/React.createElement("div", {
       style: { textAlign: "center", color: C.muted, padding: "40px 0", fontSize: 13 }
-    }, "No hay actividades aprobadas pendientes de certificar");
+    }, "No hay actividades con los filtros seleccionados");
     return misAprobadas.map(r => {
       const proy = gP(r.proyectoId);
       const lineas = r.lineasGrupo || [];
       const certAprobCount = lineas.filter(l => l.certifAprobada).length;
       const certEnvCount = lineas.filter(l => l.certifEnviada && !l.certifAprobada).length;
       const pendCount = lineas.filter(l => !l.certifEnviada && !l.certifAprobada).length;
+      const allAprob = lineas.length > 0 && lineas.every(l => l.certifAprobada);
+      const esFinalizado = r.estadoCertif === "finalizado" || allAprob;
       const isCollapsed = certCollapsed.has(r.id);
       const hayMarcados = lineas.some(l => l._certifCheck && !l.certifAprobada);
+      const headerBg = esFinalizado ? "#d1fae5" : certEnvCount > 0 ? "#fef9c3" : C.pGlow;
+      const headerBorder = esFinalizado ? C.success : certEnvCount > 0 ? C.warn : C.border;
       return /*#__PURE__*/React.createElement("div", {
         key: r.id,
-        style: { ...rowSt, marginBottom: 10, padding: 0, overflow: "hidden" }
+        style: { ...rowSt, marginBottom: 10, padding: 0, overflow: "hidden",
+          border: "1px solid " + (esFinalizado ? C.success : certEnvCount > 0 ? C.warn : C.border) }
       },
         /*#__PURE__*/React.createElement("div", {
           onClick: () => toggleCert(r.id),
-          style: {
-            display: "flex", justifyContent: "space-between", alignItems: "center",
-            padding: "8px 12px", cursor: "pointer",
-            background: certAprobCount === lineas.length && lineas.length > 0 ? "#d1fae5" : certEnvCount > 0 ? "#fef9c3" : C.pGlow,
-            borderBottom: isCollapsed ? "none" : "1px solid " + C.border
-          }
+          style: { display: "flex", justifyContent: "space-between", alignItems: "center",
+            padding: "8px 12px", cursor: "pointer", background: headerBg,
+            borderBottom: isCollapsed ? "none" : "1px solid " + headerBorder }
         },
           /*#__PURE__*/React.createElement("div", { style: { flex: 1 } },
-            /*#__PURE__*/React.createElement("div", { style: { fontWeight: 700, fontSize: 12 } },
-              r.esGrupo ? ("GRUPO · " + lineas.length + " ítems") : (gC(r.conceptoId)?.nombre || "—")
+            /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" } },
+              /*#__PURE__*/React.createElement("span", { style: { fontWeight: 700, fontSize: 12 } },
+                r.esGrupo ? ("GRUPO · " + lineas.length + " ítems") : (gC(r.conceptoId)?.nombre || "—")
+              ),
+              esFinalizado && /*#__PURE__*/React.createElement("span", {
+                style: { fontSize: 10, fontWeight: 700, color: "#065f46", background: "#a7f3d0", padding: "1px 6px", borderRadius: 4 }
+              }, "✓ FINALIZADO"),
+              !esFinalizado && r.estadoCertif && /*#__PURE__*/React.createElement("span", {
+                style: { fontSize: 10, color: C.primary, background: C.pGlow, padding: "1px 6px", borderRadius: 4 }
+              }, { cert_parcial: "Parcial", cert_total: "Total" }[r.estadoCertif] || r.estadoCertif)
             ),
             /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: C.muted, marginTop: 2, display: "flex", gap: 8, flexWrap: "wrap" } },
               proy && /*#__PURE__*/React.createElement("span", { style: { fontWeight: 600, color: C.textSec } }, proy.nombre),
               proy?.estacion && /*#__PURE__*/React.createElement("span", null, "· " + proy.estacion),
               /*#__PURE__*/React.createElement("span", null, "· " + fmtD(r.fecha)),
-              /*#__PURE__*/React.createElement("span", { style: { color: C.success, fontWeight: 600 } }, "✓ " + certAprobCount),
-              certEnvCount > 0 && /*#__PURE__*/React.createElement("span", { style: { color: C.warn, fontWeight: 600 } }, "⏳ " + certEnvCount),
-              /*#__PURE__*/React.createElement("span", { style: { color: C.muted } }, "○ " + pendCount)
+              /*#__PURE__*/React.createElement("span", { style: { color: C.success } }, "✓ " + certAprobCount),
+              certEnvCount > 0 && /*#__PURE__*/React.createElement("span", { style: { color: C.warn } }, "⏳ " + certEnvCount),
+              pendCount > 0 && /*#__PURE__*/React.createElement("span", { style: { color: C.muted } }, "○ " + pendCount)
             )
           ),
           /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: C.muted, marginLeft: 8 } }, isCollapsed ? "▼" : "▲")
         ),
         !isCollapsed && /*#__PURE__*/React.createElement("div", { style: { padding: "10px 12px" } },
-          /*#__PURE__*/React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 } },
+          !esFinalizado && /*#__PURE__*/React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 } },
             /*#__PURE__*/React.createElement("select", {
-              value: r.estadoCertif || "",
-              onChange: e => setRegistros(rs => rs.map(x => x.id === r.id ? { ...x, estadoCertif: e.target.value } : x)),
+              value: r.estadoCertif || "", onChange: e => setRegistros(rs => rs.map(x => x.id === r.id ? { ...x, estadoCertif: e.target.value } : x)),
               style: { padding: "4px 8px", border: "1px solid " + C.border, borderRadius: 4, fontSize: 11, fontFamily: "inherit", background: C.inputBg }
             },
               /*#__PURE__*/React.createElement("option", { value: "" }, "Estado certificación"),
@@ -3501,48 +3569,35 @@ function App() {
               /*#__PURE__*/React.createElement("option", { value: "cert_total" }, "Certificación total"),
               /*#__PURE__*/React.createElement("option", { value: "finalizado" }, "Finalizado")
             ),
-            /*#__PURE__*/React.createElement(Btn, {
-              sm: true, variant: "success",
+            /*#__PURE__*/React.createElement("button", {
               disabled: !hayMarcados,
               onClick: async () => {
-                // Reload from Supabase to avoid overwriting admin approvals
                 try {
                   const fresh = await ld(SK.regs, null);
-                  if (fresh) {
-                    setRegistros(fresh.map(x => {
-                      if (x.id === r.id) {
-                        // Merge: apply our certifEnviada on top of fresh data
-                        return {
-                          ...x,
-                          lineasGrupo: x.lineasGrupo.map((l, idx) => {
-                            const local = rs => rs.find(rr => rr.id === r.id)?.lineasGrupo?.[idx];
-                            const localL = registros.find(rr => rr.id === r.id)?.lineasGrupo?.[idx];
-                            if (localL?._certifCheck && !l.certifAprobada) {
-                              return { ...l, certifEnviada: true, certifAprobada: false, cantCertif: localL._cantCertif ?? l.cantidad, _certifCheck: false };
-                            }
-                            return l;
-                          })
-                        };
+                  const base = fresh || registros;
+                  setRegistros(base.map(x => {
+                    if (x.id !== r.id) return x;
+                    const updated = { ...x, lineasGrupo: x.lineasGrupo.map((l, idx) => {
+                      const localL = registros.find(rr => rr.id === r.id)?.lineasGrupo?.[idx];
+                      if (localL?._certifCheck && !l.certifAprobada) {
+                        return { ...l, certifEnviada: true, certifAprobada: false, cantCertif: localL._cantCertif ?? l.cantidad, _certifCheck: false, certifEnviadaAt: new Date().toISOString() };
                       }
-                      return x;
-                    }));
-                  } else {
-                    setRegistros(rs => rs.map(x => x.id === r.id ? {
-                      ...x,
-                      lineasGrupo: x.lineasGrupo.map(l => l._certifCheck && !l.certifAprobada
-                        ? { ...l, certifEnviada: true, certifAprobada: false, cantCertif: l._cantCertif ?? l.cantidad, _certifCheck: false }
-                        : l)
-                    } : x));
-                  }
+                      return l;
+                    })};
+                    const allNowAprob = updated.lineasGrupo.every(l => l.certifAprobada);
+                    if (allNowAprob) updated.estadoCertif = "finalizado";
+                    return updated;
+                  }));
                 } catch(e) {
-                  setRegistros(rs => rs.map(x => x.id === r.id ? {
+                  setRegistros(rs => rs.map(x => x.id !== r.id ? x : {
                     ...x,
                     lineasGrupo: x.lineasGrupo.map(l => l._certifCheck && !l.certifAprobada
-                      ? { ...l, certifEnviada: true, certifAprobada: false, cantCertif: l._cantCertif ?? l.cantidad, _certifCheck: false }
+                      ? { ...l, certifEnviada: true, certifAprobada: false, cantCertif: l._cantCertif ?? l.cantidad, _certifCheck: false, certifEnviadaAt: new Date().toISOString() }
                       : l)
-                  } : x));
+                  }));
                 }
-              }
+              },
+              style: { padding: "5px 12px", fontSize: 11, background: hayMarcados ? C.success : C.border, color: "#fff", border: "none", borderRadius: 5, cursor: hayMarcados ? "pointer" : "not-allowed", fontFamily: "inherit" }
             }, "📤 Enviar certificación")
           ),
           r.esGrupo && lineas.map((l, i) => {
@@ -3558,9 +3613,8 @@ function App() {
                 border: "1px solid " + (isAprobada ? C.success : isEnviada ? C.warn : C.border)
               }
             },
-              !isAprobada && !isEnviada && /*#__PURE__*/React.createElement("input", {
-                type: "checkbox",
-                checked: l._certifCheck || false,
+              !isAprobada && !isEnviada && !esFinalizado && /*#__PURE__*/React.createElement("input", {
+                type: "checkbox", checked: l._certifCheck || false,
                 onChange: e => setRegistros(rs => rs.map(x => x.id === r.id ? {
                   ...x, lineasGrupo: x.lineasGrupo.map((ll, j) => j === i ? { ...ll, _certifCheck: e.target.checked } : ll)
                 } : x)),
@@ -3572,25 +3626,23 @@ function App() {
                 conc?.nombre || "—"
               ),
               isAprobada && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: "#065f46", whiteSpace: "nowrap" } },
-                "✓ Certif: " + l.cantCertif + " uds (orig: " + l.cantidad + ")"
+                "✓ " + l.cantCertif + " uds (orig: " + l.cantidad + ")"
               ),
               isEnviada && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: "#92400e", whiteSpace: "nowrap" } },
-                "⏳ Enviado: " + l.cantCertif + " uds · pendiente aprobación"
+                "⏳ " + l.cantCertif + " uds · pendiente"
               ),
-              !isAprobada && !isEnviada && /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
-                /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.muted } }, "Cant: " + l.cantidad),
-                l._certifCheck && /*#__PURE__*/React.createElement(React.Fragment, null,
-                  /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.muted } }, "→"),
-                  /*#__PURE__*/React.createElement("input", {
-                    type: "number", min: "0", step: "0.01",
-                    value: l._cantCertif ?? l.cantidad,
-                    onClick: e => e.stopPropagation(),
-                    onChange: e => setRegistros(rs => rs.map(x => x.id === r.id ? {
-                      ...x, lineasGrupo: x.lineasGrupo.map((ll, j) => j === i ? { ...ll, _cantCertif: Number(e.target.value) } : ll)
-                    } : x)),
-                    style: { width: 55, padding: "2px 5px", border: "1px solid " + C.border, borderRadius: 4, fontSize: 11, fontFamily: "inherit", background: C.inputBg, textAlign: "center" }
-                  })
-                )
+              !isAprobada && !isEnviada && !esFinalizado && l._certifCheck && /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
+                /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.muted } }, "→"),
+                /*#__PURE__*/React.createElement("input", {
+                  type: "number", min: "0", step: "0.01",
+                  value: l._cantCertif ?? l.cantidad,
+                  onClick: e => e.stopPropagation(),
+                  onChange: e => setRegistros(rs => rs.map(x => x.id === r.id ? {
+                    ...x, lineasGrupo: x.lineasGrupo.map((ll, j) => j === i ? { ...ll, _cantCertif: Number(e.target.value) } : ll)
+                  } : x)),
+                  style: { width: 55, padding: "2px 5px", border: "1px solid " + C.border, borderRadius: 4, fontSize: 11, fontFamily: "inherit", background: C.inputBg, textAlign: "center" }
+                }),
+                /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.muted } }, "uds")
               )
             );
           })
