@@ -2848,7 +2848,7 @@ function App() {
       return 0;
     });
     return r;
-  }, [registros, filtroRPid, filtroRES, filtroRSt, filtroRCreador, ordenR, isAdmin, user, proyectos]);
+  }, [registros, filtroRPid, filtroRES, filtroRSt, filtroRCreador, filtroRTrab, ordenR, isAdmin, user, proyectos]);
   const fFact = useMemo(() => facturas.filter(f => {
     if (filtroFT && f.tipo !== filtroFT) return false;
     if (filtroFE && f.estado !== filtroFE) return false;
@@ -3569,7 +3569,13 @@ function App() {
   (() => {
     const misAprobadas = registros.filter(r => {
       if (r.estado !== "aprobado") return false;
-      if (!(r.trabajador === user?.nombre || r.creadoPor === user?.nombre || r.trabajador === user?.id || r.creadoPor === user?.id)) return false;
+      const _abbrMap = {'JSF':'Jordi Santos','YLS':'Yennyfer Lemus','DRF':'Daniel','ILS':'Ignacio López'};
+      const _userNames = new Set([user?.nombre, user?.id, ...Object.entries(_abbrMap).filter(([,v])=>v===user?.nombre).map(([k])=>k)].filter(Boolean));
+      if (!_userNames.has(r.trabajador) && !_userNames.has(r.creadoPor)) return false;
+      if (filtroRTrab) {
+        const _abbrRev = Object.fromEntries(Object.entries(_abbrMap).map(([k,v])=>[v,k]));
+        if (r.trabajador !== filtroRTrab && r.trabajador !== _abbrRev[filtroRTrab]) return false;
+      }
       if (fCertProy && r.proyectoId !== fCertProy) return false;
       const proy = gP(r.proyectoId);
       if (fCertSite && proy?.estacion !== fCertSite) return false;
