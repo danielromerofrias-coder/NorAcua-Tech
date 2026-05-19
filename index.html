@@ -1768,6 +1768,7 @@ function App() {
   const [filtroRSt, setFiltroRSt] = useState("");
   // FIX #9: filtro por creador
   const [filtroRCreador, setFiltroRCreador] = useState("");
+  const [filtroRTrab, setFiltroRTrab] = useState("");
   const [ordenR, setOrdenR] = useState("fecha_desc");
   // Filtros facturas
   const [filtroFT, setFiltroFT] = useState("");
@@ -2825,7 +2826,16 @@ function App() {
   // FIX #6 + #9: filtrado registros
   const rFiltrados = useMemo(() => {
     let r = [...registros];
-    if (!isAdmin) r = r.filter(x => x.trabajador === user?.nombre || x.creadoPor === user?.nombre || x.trabajador === user?.id || x.creadoPor === user?.id);
+    if (!isAdmin) {
+      const _abbrMap = {'JSF':'Jordi Santos','YLS':'Yennyfer Lemus','DRF':'Daniel','ILS':'Ignacio López'};
+      const _userNames = new Set([user?.nombre, user?.id, ...Object.entries(_abbrMap).filter(([,v])=>v===user?.nombre).map(([k])=>k)].filter(Boolean));
+      r = r.filter(x => _userNames.has(x.trabajador) || _userNames.has(x.creadoPor));
+    }
+    if (filtroRTrab) {
+      const _abbrMap = {'JSF':'Jordi Santos','YLS':'Yennyfer Lemus','DRF':'Daniel','ILS':'Ignacio López'};
+      const _abbrRev = Object.fromEntries(Object.entries(_abbrMap).map(([k,v])=>[v,k]));
+      r = r.filter(x => x.trabajador === filtroRTrab || x.trabajador === _abbrRev[filtroRTrab]);
+    }
     if (filtroRPid) r = r.filter(x => x.proyectoId === filtroRPid);
     if (filtroRES) r = r.filter(x => gP(x.proyectoId)?.estacion === filtroRES);
     if (filtroRSt) r = r.filter(x => x.estado === filtroRSt);
@@ -3506,6 +3516,13 @@ function App() {
   /*#__PURE__*/React.createElement("h2", { style: { fontSize: 17, fontWeight: 700, marginBottom: 4 } }, "Certificación"),
   /*#__PURE__*/React.createElement("p", { style: { fontSize: 12, color: C.muted, marginBottom: 10 } }, "Activa los ítems completados e indica las cantidades reales"),
   /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 } },
+    /*#__PURE__*/React.createElement("select", {
+      value: filtroRTrab, onChange: e => setFiltroRTrab(e.target.value),
+      style: { padding: "5px 8px", border: "1px solid " + C.border, borderRadius: 5, fontSize: 12, fontFamily: "inherit", background: C.inputBg }
+    },
+      /*#__PURE__*/React.createElement("option", { value: "" }, "Todos los t\xE9cnicos"),
+      trabs.map(t => /*#__PURE__*/React.createElement("option", { key: t, value: t }, t))
+    ),
     /*#__PURE__*/React.createElement("select", {
       value: fCertEstado, onChange: e => setFCertEstado(e.target.value),
       style: { padding: "5px 8px", border: "1px solid " + C.border, borderRadius: 5, fontSize: 12, fontFamily: "inherit", background: C.inputBg }
