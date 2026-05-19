@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang='es'><head><meta charset='UTF-8'/><meta name='viewport' content='width=device-width,initial-scale=1.0'/><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/><meta http-equiv="Pragma" content="no-cache"/><meta http-equiv="Expires" content="0"/><title>NorAcua Suite v2.3</title>
+<!DOCTYPE html><html lang='es'><head><meta charset='UTF-8'/><meta name='viewport' content='width=device-width,initial-scale=1.0'/><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/><meta http-equiv="Pragma" content="no-cache"/><meta http-equiv="Expires" content="0"/><title>NorAcua Suite v2.4</title>
 <script src='https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js'></script>
 <script src='https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js'></script>
 <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Segoe UI',-apple-system,sans-serif;background:#f4f6f8;}</style>
@@ -83,7 +83,7 @@ async function autoBackup(datos) {
     Object.keys(localStorage).filter(k => k.startsWith('na_autobk_na-backup-')).sort().reverse().slice(7).forEach(k => localStorage.removeItem(k));
   } catch(e) { console.warn('[NorAcua] autoBackup error:', e.message); }
 }
-const APP_VERSION = "2.3";
+const APP_VERSION = "2.4";
 if (typeof window !== "undefined" && window.localStorage) {
   const lastLoad = window.localStorage.getItem("na_lastload");
   const now = Date.now();
@@ -1890,16 +1890,20 @@ function App() {
     if (!loading) sv(SK.proj, proyectos);
   }, [proyectos, loading]);
   useEffect(() => {
-    if (!loading) {
+    if (!loading && user) {
       (async () => {
         try {
           const fresh = await ld(SK.regs, null);
           if (fresh && fresh.length > 0) {
-            const myIds = new Set(registros.map(r => r.id));
-            const merged = [
-              ...registros,
-              ...fresh.filter(r => !myIds.has(r.id))
-            ];
+            // Tecnico only owns records created by or assigned to them
+            const myRegs = registros.filter(r =>
+              r.trabajador === user.nombre || r.creadoPor === user.nombre ||
+              r.trabajador === user.id || r.creadoPor === user.id
+            );
+            const myIds = new Set(myRegs.map(r => r.id));
+            // Keep all fresh records NOT belonging to this user
+            const othersRegs = fresh.filter(r => !myIds.has(r.id));
+            const merged = [...myRegs, ...othersRegs];
             await sv(SK.regs, merged);
           } else {
             await sv(SK.regs, registros);
@@ -1909,7 +1913,7 @@ function App() {
         }
       })();
     }
-  }, [registros, loading]);
+  }, [registros, loading, user]);
   useEffect(() => {
     if (!loading) sv(SK.trabs, trabs);
   }, [trabs, loading]);
@@ -3678,8 +3682,13 @@ function App() {
               }),
               isAprobada && /*#__PURE__*/React.createElement("span", { style: { color: C.success, fontSize: 14, flexShrink: 0 } }, "✓"),
               isEnviada && /*#__PURE__*/React.createElement("span", { style: { color: C.warn, fontSize: 14, flexShrink: 0 } }, "⏳"),
-              /*#__PURE__*/React.createElement("span", { style: { flex: 1, color: isAprobada ? "#065f46" : C.text, fontWeight: isAprobada ? 600 : 400 } },
-                conc?.nombre || "—"
+              /*#__PURE__*/React.createElement("div", { style: { flex: 1 } },
+                /*#__PURE__*/React.createElement("span", { style: { color: isAprobada ? "#065f46" : C.text, fontWeight: isAprobada ? 600 : 400, fontSize: 12 } },
+                  conc?.nombre || "—"
+                ),
+                l.observaciones && /*#__PURE__*/React.createElement("div", {
+                  style: { fontSize: 10, color: C.muted, fontStyle: "italic", marginTop: 1 }
+                }, l.observaciones)
               ),
               isAprobada && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: "#065f46", whiteSpace: "nowrap" } },
                 "✓ " + l.cantCertif + " uds (orig: " + l.cantidad + ")"
@@ -7249,15 +7258,17 @@ function App() {
       l: c.nombre
     })),
     ph: "Sin cliente"
-  }), /*#__PURE__*/React.createElement(Inp, {
-    label: "Responsable BP",
-    value: fPr.responsableBP || "",
-    onChange: v => setFPr(p => ({
-      ...p,
-      responsableBP: v
-    })),
-    placeholder: "Opcional"
-  }), /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("div", { style: { marginBottom: 11 } },
+    /*#__PURE__*/React.createElement("label", { style: { display: "block", fontSize: 10, fontWeight: 600, color: C.textSec, marginBottom: 3, textTransform: "uppercase", letterSpacing: .7 } }, "Responsable cliente"),
+    /*#__PURE__*/React.createElement("select", {
+      value: fPr.responsableBP || "",
+      onChange: e => setFPr(p => ({ ...p, responsableBP: e.target.value })),
+      style: { width: "100%", padding: "8px 11px", border: "1px solid " + C.border, borderRadius: 6, fontSize: 13, fontFamily: "inherit", background: C.inputBg, color: C.text }
+    },
+      /*#__PURE__*/React.createElement("option", { value: "" }, "— Seleccionar —"),
+      resps.map(r => /*#__PURE__*/React.createElement("option", { key: r.id || r.nombre, value: r.nombre }, r.nombre))
+    )
+  ), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       justifyContent: "flex-end",
@@ -7373,15 +7384,17 @@ function App() {
       l: c.nombre
     })),
     ph: "Sin cliente"
-  }), /*#__PURE__*/React.createElement(Inp, {
-    label: "Responsable BP",
-    value: mEProy.responsableBP || "",
-    onChange: v => setMEProy(p => ({
-      ...p,
-      responsableBP: v
-    })),
-    placeholder: "Opcional"
-  }), /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("div", { style: { marginBottom: 11 } },
+    /*#__PURE__*/React.createElement("label", { style: { display: "block", fontSize: 10, fontWeight: 600, color: C.textSec, marginBottom: 3, textTransform: "uppercase", letterSpacing: .7 } }, "Responsable cliente"),
+    /*#__PURE__*/React.createElement("select", {
+      value: mEProy.responsableBP || "",
+      onChange: e => setMEProy(p => ({ ...p, responsableBP: e.target.value })),
+      style: { width: "100%", padding: "8px 11px", border: "1px solid " + C.border, borderRadius: 6, fontSize: 13, fontFamily: "inherit", background: C.inputBg, color: C.text }
+    },
+      /*#__PURE__*/React.createElement("option", { value: "" }, "— Seleccionar —"),
+      resps.map(r => /*#__PURE__*/React.createElement("option", { key: r.id || r.nombre, value: r.nombre }, r.nombre))
+    )
+  ), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       justifyContent: "flex-end",
