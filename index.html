@@ -2840,6 +2840,12 @@ function App() {
     if (filtroRES) r = r.filter(x => gP(x.proyectoId)?.estacion === filtroRES);
     if (filtroRSt) r = r.filter(x => x.estado === filtroRSt);
     if (isAdmin && filtroRCreador) r = r.filter(x => (x.creadoPor || x.trabajador) === filtroRCreador);
+    // Exclude finalizadas from main registro view (they go to Archivadas tab)
+    r = r.filter(x => {
+      const lineas = x.lineasGrupo || [];
+      const allAprob = lineas.length > 0 && lineas.every(l => l.certifAprobada);
+      return !(x.estadoCertif === "finalizado" || allAprob);
+    });
     r.sort((a, b) => {
       if (ordenR === "fecha_desc") return b.fecha.localeCompare(a.fecha);
       if (ordenR === "fecha_asc") return a.fecha.localeCompare(b.fecha);
@@ -2899,6 +2905,14 @@ function App() {
     padding: "11px 15px",
     marginBottom: 7
   };
+  const archivadasCount = registros.filter(r => {
+    const _abbrMap = {"JSF":"Jordi Santos","YLS":"Yennyfer Lemus","DRF":"Daniel","ILS":"Ignacio López"};
+    const _userNames = new Set([user?.nombre, user?.id, ...Object.entries(_abbrMap).filter(([,v])=>v===user?.nombre).map(([k])=>k)].filter(Boolean));
+    if (!isAdmin && !_userNames.has(r.trabajador) && !_userNames.has(r.creadoPor)) return false;
+    const lineas = r.lineasGrupo || [];
+    const allAprob = lineas.length > 0 && lineas.every(l => l.certifAprobada);
+    return r.estadoCertif === "finalizado" || allAprob;
+  }).length;
   const navTrabajos = [{
     k: "registro",
     l: "Registro",
@@ -2907,6 +2921,10 @@ function App() {
     k: "revision",
     l: "Certificación",
     i: P.eye
+  }, {
+    k: "archivadas",
+    l: "Archivadas" + (archivadasCount > 0 ? " (" + archivadasCount + ")" : ""),
+    i: P.hist
   }, ...(isAdmin ? [{
     k: "informes",
     l: "Informes",
@@ -3511,7 +3529,11 @@ function App() {
     }, /*#__PURE__*/React.createElement(Ic, {
       d: P.edit,
       sz: 13
-    }))))));
+    })), r.estado === "rechazado" && /*#__PURE__*/React.createElement("button", {
+      onClick: () => { if (window.confirm("¿Eliminar esta actividad rechazada?")) delR(r.id); },
+      style: { background: "none", border: "none", cursor: "pointer", color: C.danger, padding: 3 },
+      title: "Eliminar actividad rechazada"
+    }, /*#__PURE__*/React.createElement(Ic, { d: P.trash, sz: 13 }))))));
   })), view === "revision" && /*#__PURE__*/React.createElement(React.Fragment, null,
   /*#__PURE__*/React.createElement("h2", { style: { fontSize: 17, fontWeight: 700, marginBottom: 4 } }, "Certificación"),
   /*#__PURE__*/React.createElement("p", { style: { fontSize: 12, color: C.muted, marginBottom: 10 } }, "Activa los ítems completados e indica las cantidades reales"),
@@ -3738,7 +3760,81 @@ function App() {
       );
     });
   })()
-), view === "informes" && isAdmin && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h2", {
+, view === "archivadas" && /*#__PURE__*/React.createElement(React.Fragment, null,
+  /*#__PURE__*/React.createElement("h2", { style: { fontSize: 17, fontWeight: 700, marginBottom: 4 } }, "Archivadas"),
+  /*#__PURE__*/React.createElement("p", { style: { fontSize: 12, color: C.muted, marginBottom: 14 } }, "Actividades finalizadas — proceso completado"),
+  (() => {
+    const _abbrMap = {"JSF":"Jordi Santos","YLS":"Yennyfer Lemus","DRF":"Daniel","ILS":"Ignacio López"};
+    const _userNames = new Set([user?.nombre, user?.id, ...Object.entries(_abbrMap).filter(([,v])=>v===user?.nombre).map(([k])=>k)].filter(Boolean));
+    const archivadas = registros.filter(r => {
+      if (!isAdmin && !_userNames.has(r.trabajador) && !_userNames.has(r.creadoPor)) return false;
+      const lineas = r.lineasGrupo || [];
+      const allAprob = lineas.length > 0 && lineas.every(l => l.certifAprobada);
+      return r.estadoCertif === "finalizado" || allAprob;
+    }).sort((a,b) => b.fecha.localeCompare(a.fecha));
+    if (!archivadas.length) return /*#__PURE__*/React.createElement("div", {
+      style: { textAlign: "center", color: C.muted, padding: "40px 0", fontSize: 13 }
+    }, "No hay actividades archivadas");
+    return /*#__PURE__*/React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
+      archivadas.map(r => {
+        const proy = gP(r.proyectoId);
+        const lineas = r.lineasGrupo || [];
+        const _nItems = r.esGrupo ? lineas.length : 1;
+        const _title = r.esGrupo ? ("GRUPO · " + _nItems + " actividades") : (gC(r.conceptoId)?.nombre || "—");
+        const isCollapsed = certCollapsed.has(r.id);
+        return /*#__PURE__*/React.createElement("div", {
+          key: r.id,
+          style: { ...rowSt, padding: 0, overflow: "hidden", border: "1px solid " + C.success, opacity: 0.85 }
+        },
+          /*#__PURE__*/React.createElement("div", {
+            onClick: () => toggleCert(r.id),
+            style: { display: "flex", justifyContent: "space-between", alignItems: "center",
+              padding: "8px 12px", cursor: "pointer", background: "#d1fae5",
+              borderBottom: isCollapsed ? "none" : "1px solid " + C.success }
+          },
+            /*#__PURE__*/React.createElement("div", { style: { flex: 1 } },
+              /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" } },
+                /*#__PURE__*/React.createElement("span", { style: { fontWeight: 700, fontSize: 12 } }, _title),
+                /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#065f46", background: "#a7f3d0", padding: "1px 6px", borderRadius: 4 } }, "\u2713 FINALIZADO")
+              ),
+              /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: C.muted, marginTop: 2, display: "flex", gap: 8, flexWrap: "wrap" } },
+                proy && /*#__PURE__*/React.createElement("span", { style: { fontWeight: 600, color: C.textSec } }, proy.nombre || proy.po || ""),
+                proy?.estacion && /*#__PURE__*/React.createElement("span", { style: { color: C.primary } }, "\xB7 " + proy.estacion),
+                r.trabajador && /*#__PURE__*/React.createElement("span", null, "\xB7 " + r.trabajador),
+                /*#__PURE__*/React.createElement("span", null, "\xB7 " + fmtD(r.fecha)),
+                r.esGrupo && /*#__PURE__*/React.createElement("span", null, _nItems + " items")
+              )
+            ),
+            /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: C.muted, marginLeft: 8 } }, isCollapsed ? "\u25BC" : "\u25B2")
+          ),
+          !isCollapsed && /*#__PURE__*/React.createElement("div", { style: { padding: "8px 12px" } },
+            r.esGrupo ? /*#__PURE__*/React.createElement("div", null,
+              lineas.map((l, i) => {
+                const c = gC(l.conceptoId);
+                return /*#__PURE__*/React.createElement("div", { key: i,
+                  style: { display: "flex", alignItems: "center", gap: 8, padding: "5px 8px",
+                    borderRadius: 4, fontSize: 12, marginBottom: 4, background: "#d1fae5", border: "1px solid " + C.success }
+                },
+                  /*#__PURE__*/React.createElement("span", { style: { color: "#065f46" } }, "\u2713"),
+                  /*#__PURE__*/React.createElement("div", { style: { flex: 1 } },
+                    /*#__PURE__*/React.createElement("span", null, c?.nombre || "\u2014"),
+                    l.observaciones && /*#__PURE__*/React.createElement("div", { style: { fontSize: 10, color: C.muted, fontStyle: "italic" } }, l.observaciones)
+                  ),
+                  /*#__PURE__*/React.createElement("span", { style: { color: C.muted, whiteSpace: "nowrap" } }, (l.cantCertif ?? l.cantidad) + " uds")
+                );
+              })
+            ) : /*#__PURE__*/React.createElement("div", { style: { fontSize: 13, fontWeight: 600 } }, gC(r.conceptoId)?.nombre || "\u2014"),
+            /*#__PURE__*/React.createElement("div", { style: { marginTop: 8, fontSize: 11, color: C.muted, display: "flex", gap: 8, flexWrap: "wrap" } },
+              proy && /*#__PURE__*/React.createElement("span", { style: { fontWeight: 600, color: C.textSec } }, proy.nombre || ""),
+              proy?.estacion && /*#__PURE__*/React.createElement("span", { style: { color: C.primary } }, "\xB7 " + proy.estacion),
+              /*#__PURE__*/React.createElement("span", null, "\xB7 " + fmtD(r.fecha))
+            )
+          )
+        );
+      })
+    );
+  })()
+)), view === "informes" && isAdmin && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h2", {
     style: {
       fontSize: 17,
       fontWeight: 700,
@@ -7437,20 +7533,23 @@ function App() {
     },
     title: isAdmin ? "Nueva actividad" : "Registrar actividades",
     w: isAdmin ? 520 : 640
-  }, /*#__PURE__*/React.createElement(Sel, {
-    label: "Proyecto",
-    value: fRg.proyectoId,
-    onChange: v => setFRg(r => ({
-      ...r,
-      proyectoId: v
-    })),
-    options: proyectos.map(p => ({
-      v: p.id,
-      l: `${p.nombre}${p.estacion ? ` | ${p.estacion}` : ""} (${p.zona})`
-    })),
-    ph: "Seleccionar...",
-    req: true
-  }), /*#__PURE__*/React.createElement(Sel, {
+  }, /*#__PURE__*/React.createElement("div", { style: { marginBottom: 11 } },
+    /*#__PURE__*/React.createElement("label", { style: { display: "block", fontSize: 10, fontWeight: 600, color: C.textSec, marginBottom: 4, textTransform: "uppercase", letterSpacing: .7 } }, "Proyecto *"),
+    /*#__PURE__*/React.createElement("input", {
+      placeholder: "Buscar proyecto...",
+      value: fRg.searchPr || "",
+      onChange: e => setFRg(r => ({ ...r, searchPr: e.target.value, proyectoId: "" })),
+      style: { width: "100%", padding: "7px 11px", border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 13, fontFamily: "inherit", background: C.inputBg, marginBottom: 5, boxSizing: "border-box", outline: "none" }
+    }),
+    /*#__PURE__*/React.createElement("select", {
+      value: fRg.proyectoId,
+      onChange: e => setFRg(r => ({ ...r, proyectoId: e.target.value })),
+      style: { width: "100%", padding: "8px 11px", border: `1px solid ${fRg.proyectoId ? C.border : C.danger + "66"}`, borderRadius: 6, fontSize: 13, fontFamily: "inherit", background: C.inputBg, outline: "none", boxSizing: "border-box" }
+    },
+      /*#__PURE__*/React.createElement("option", { value: "" }, "Seleccionar..."),
+      proyectos.filter(p => !fRg.searchPr || (p.nombre + " " + (p.estacion || "") + " " + (p.po || "")).toLowerCase().includes((fRg.searchPr || "").toLowerCase())).map(p => /*#__PURE__*/React.createElement("option", { key: p.id, value: p.id }, p.nombre + (p.estacion ? ` | ${p.estacion}` : "") + ` (${p.zona})`))
+    )
+  ), /*#__PURE__*/React.createElement(Sel, {
     label: "Trabajador",
     value: fRg.trabajador,
     onChange: v => setFRg(r => ({
@@ -7752,19 +7851,23 @@ function App() {
     onClose: () => setMEReg(null),
     title: mEReg?.esGrupo ? "Editar grupo de actividades" : "Editar actividad",
     w: mEReg?.esGrupo ? 640 : 520
-  }, mEReg && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Sel, {
-    label: "Proyecto",
-    value: mEReg.proyectoId,
-    onChange: v => setMEReg(r => ({
-      ...r,
-      proyectoId: v
-    })),
-    options: proyectos.map(p => ({
-      v: p.id,
-      l: `${p.nombre}${p.estacion ? ` | ${p.estacion}` : ""} (${p.zona})`
-    })),
-    req: true
-  }), /*#__PURE__*/React.createElement(Sel, {
+  }, mEReg && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", { style: { marginBottom: 11 } },
+    /*#__PURE__*/React.createElement("label", { style: { display: "block", fontSize: 10, fontWeight: 600, color: C.textSec, marginBottom: 4, textTransform: "uppercase", letterSpacing: .7 } }, "Proyecto *"),
+    /*#__PURE__*/React.createElement("input", {
+      placeholder: "Buscar proyecto...",
+      value: mEReg.searchPr || "",
+      onChange: e => setMEReg(r => ({ ...r, searchPr: e.target.value })),
+      style: { width: "100%", padding: "7px 11px", border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 13, fontFamily: "inherit", background: C.inputBg, marginBottom: 5, boxSizing: "border-box", outline: "none" }
+    }),
+    /*#__PURE__*/React.createElement("select", {
+      value: mEReg.proyectoId,
+      onChange: e => setMEReg(r => ({ ...r, proyectoId: e.target.value })),
+      style: { width: "100%", padding: "8px 11px", border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 13, fontFamily: "inherit", background: C.inputBg, outline: "none", boxSizing: "border-box" }
+    },
+      /*#__PURE__*/React.createElement("option", { value: "" }, "Seleccionar..."),
+      proyectos.filter(p => !mEReg.searchPr || (p.nombre + " " + (p.estacion || "") + " " + (p.po || "")).toLowerCase().includes((mEReg.searchPr || "").toLowerCase())).map(p => /*#__PURE__*/React.createElement("option", { key: p.id, value: p.id }, p.nombre + (p.estacion ? ` | ${p.estacion}` : "") + ` (${p.zona})`))
+    )
+  ), /*#__PURE__*/React.createElement(Sel, {
     label: "Trabajador",
     value: mEReg.trabajador,
     onChange: v => setMEReg(r => ({
@@ -8915,4 +9018,78 @@ class ErrorBoundary extends React.Component {
 ReactDOM.createRoot(document.getElementById('root')).render(
   React.createElement(ErrorBoundary, null, React.createElement(App))
 );
-</script></body></html>
+</script></body></html, view === "archivadas" && /*#__PURE__*/React.createElement(React.Fragment, null,
+  /*#__PURE__*/React.createElement("h2", { style: { fontSize: 17, fontWeight: 700, marginBottom: 4 } }, "Archivadas"),
+  /*#__PURE__*/React.createElement("p", { style: { fontSize: 12, color: C.muted, marginBottom: 14 } }, "Actividades finalizadas — proceso completado"),
+  (() => {
+    const _abbrMap = {"JSF":"Jordi Santos","YLS":"Yennyfer Lemus","DRF":"Daniel","ILS":"Ignacio López"};
+    const _userNames = new Set([user?.nombre, user?.id, ...Object.entries(_abbrMap).filter(([,v])=>v===user?.nombre).map(([k])=>k)].filter(Boolean));
+    const archivadas = registros.filter(r => {
+      if (!isAdmin && !_userNames.has(r.trabajador) && !_userNames.has(r.creadoPor)) return false;
+      const lineas = r.lineasGrupo || [];
+      const allAprob = lineas.length > 0 && lineas.every(l => l.certifAprobada);
+      return r.estadoCertif === "finalizado" || allAprob;
+    }).sort((a,b) => b.fecha.localeCompare(a.fecha));
+    if (!archivadas.length) return /*#__PURE__*/React.createElement("div", {
+      style: { textAlign: "center", color: C.muted, padding: "40px 0", fontSize: 13 }
+    }, "No hay actividades archivadas");
+    return /*#__PURE__*/React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
+      archivadas.map(r => {
+        const proy = gP(r.proyectoId);
+        const lineas = r.lineasGrupo || [];
+        const _nItems = r.esGrupo ? lineas.length : 1;
+        const _title = r.esGrupo ? ("GRUPO · " + _nItems + " actividades") : (gC(r.conceptoId)?.nombre || "—");
+        const isCollapsed = certCollapsed.has(r.id);
+        return /*#__PURE__*/React.createElement("div", {
+          key: r.id,
+          style: { ...rowSt, padding: 0, overflow: "hidden", border: "1px solid " + C.success, opacity: 0.85 }
+        },
+          /*#__PURE__*/React.createElement("div", {
+            onClick: () => toggleCert(r.id),
+            style: { display: "flex", justifyContent: "space-between", alignItems: "center",
+              padding: "8px 12px", cursor: "pointer", background: "#d1fae5",
+              borderBottom: isCollapsed ? "none" : "1px solid " + C.success }
+          },
+            /*#__PURE__*/React.createElement("div", { style: { flex: 1 } },
+              /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" } },
+                /*#__PURE__*/React.createElement("span", { style: { fontWeight: 700, fontSize: 12 } }, _title),
+                /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#065f46", background: "#a7f3d0", padding: "1px 6px", borderRadius: 4 } }, "✓ FINALIZADO")
+              ),
+              /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: C.muted, marginTop: 2, display: "flex", gap: 8, flexWrap: "wrap" } },
+                proy && /*#__PURE__*/React.createElement("span", { style: { fontWeight: 600, color: C.textSec } }, proy.nombre || proy.po || ""),
+                proy?.estacion && /*#__PURE__*/React.createElement("span", { style: { color: C.primary } }, "· " + proy.estacion),
+                r.trabajador && /*#__PURE__*/React.createElement("span", null, "· " + r.trabajador),
+                /*#__PURE__*/React.createElement("span", null, "· " + fmtD(r.fecha)),
+                r.esGrupo && /*#__PURE__*/React.createElement("span", null, _nItems + " items")
+              )
+            ),
+            /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: C.muted, marginLeft: 8 } }, isCollapsed ? "▼" : "▲")
+          ),
+          !isCollapsed && /*#__PURE__*/React.createElement("div", { style: { padding: "8px 12px" } },
+            r.esGrupo ? /*#__PURE__*/React.createElement("div", null,
+              lineas.map((l, i) => {
+                const c = gC(l.conceptoId);
+                return /*#__PURE__*/React.createElement("div", { key: i,
+                  style: { display: "flex", alignItems: "center", gap: 8, padding: "5px 8px",
+                    borderRadius: 4, fontSize: 12, marginBottom: 4, background: "#d1fae5", border: "1px solid " + C.success }
+                },
+                  /*#__PURE__*/React.createElement("span", { style: { color: "#065f46" } }, "✓"),
+                  /*#__PURE__*/React.createElement("div", { style: { flex: 1 } },
+                    /*#__PURE__*/React.createElement("span", null, c?.nombre || "—"),
+                    l.observaciones && /*#__PURE__*/React.createElement("div", { style: { fontSize: 10, color: C.muted, fontStyle: "italic" } }, l.observaciones)
+                  ),
+                  /*#__PURE__*/React.createElement("span", { style: { color: C.muted, whiteSpace: "nowrap" } }, (l.cantCertif ?? l.cantidad) + " uds")
+                );
+              })
+            ) : /*#__PURE__*/React.createElement("div", { style: { fontSize: 13, fontWeight: 600 } }, gC(r.conceptoId)?.nombre || "—"),
+            /*#__PURE__*/React.createElement("div", { style: { marginTop: 8, fontSize: 11, color: C.muted, display: "flex", gap: 8 } },
+              proy && /*#__PURE__*/React.createElement("span", { style: { fontWeight: 600, color: C.textSec } }, proy.nombre || ""),
+              proy?.estacion && /*#__PURE__*/React.createElement("span", { style: { color: C.primary } }, "· " + proy.estacion),
+              /*#__PURE__*/React.createElement("span", null, "· " + fmtD(r.fecha))
+            )
+          )
+        );
+      })
+    );
+  })()
+)>
