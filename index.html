@@ -1,10 +1,10 @@
-<!DOCTYPE html><html lang='es'><head><meta charset='UTF-8'/><meta name='viewport' content='width=device-width,initial-scale=1.0'/><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/><meta http-equiv="Pragma" content="no-cache"/><meta http-equiv="Expires" content="0"/><title>NorAcua Suite v2.4</title>
+<!DOCTYPE html><html lang='es'><head><meta charset='UTF-8'/><meta name='viewport' content='width=device-width,initial-scale=1.0'/><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/><meta http-equiv="Pragma" content="no-cache"/><meta http-equiv="Expires" content="0"/><title>NorAcua Suite v2.5</title>
 <script src='https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js'></script>
 <script src='https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js'></script>
 <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Segoe UI',-apple-system,sans-serif;background:#f4f6f8;}</style>
 </head><body><div id='root'></div>
 <script>
-const SB_URL="https://lhmawivuxgekxleqvqle.supabase.co";const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxobWF3aXZ1eGdla3hsZXF2cWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MTY1NTYsImV4cCI6MjA5NDE5MjU1Nn0.frbxipEXiMfxsiRjo9rilHDiXoc3BqYGxOh-Qgq0VhU";const SK_TABLE_MAP={"na-v20-proyectos":"na_proyectos","na-v20-registros":"na_registros","na-v21-facturas":"na_facturas","na-v21-ofertas":"na_ofertas","na-v20-clientes":"na_clientes","na-v21-conceptos-enc":"na_conceptos","na-v20-trabajadores":"na_trabajadores","na-v20-responsables":"na_responsables","na-v20-estaciones":"na_estaciones","na-v20-series":"na_series","na-v21-cfg-ofertas":"na_cfg_ofertas","na-v20-historico":"na_historico","na-last-login":"na_cfg_ofertas","na-v21-conceptos-activos":"na_cfg_ofertas","na-backup-auto":"na_cfg_ofertas"};const _sbFetch=async(path,opts={})=>{const r=await fetch(SB_URL+path,{...opts,headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json',...(opts.headers||{})}});if(!r.ok){const e=await r.text();console.error('SB error',r.status,e);return null;}const ct=r.headers.get('content-type')||'';return ct.includes('json')?r.json():null;};window.storage={get:async(key)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;const rows=await _sbFetch('/rest/v1/'+tbl+'?id=eq.'+encodeURIComponent(key)+'&select=data',{method:'GET'});if(!rows||rows.length===0){// Supabase empty - check local backup
+const SB_URL="https://lhmawivuxgekxleqvqle.supabase.co";const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxobWF3aXZ1eGdla3hsZXF2cWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MTY1NTYsImV4cCI6MjA5NDE5MjU1Nn0.frbxipEXiMfxsiRjo9rilHDiXoc3BqYGxOh-Qgq0VhU";const SK_TABLE_MAP={"na-v20-proyectos":"na_proyectos","na-v20-registros":"na_registros","na-v21-facturas":"na_facturas","na-v21-ofertas":"na_ofertas","na-v20-clientes":"na_clientes","na-v21-conceptos-enc":"na_conceptos","na-v20-trabajadores":"na_trabajadores","na-v20-responsables":"na_responsables","na-v20-estaciones":"na_estaciones","na-v20-series":"na_series","na-v21-cfg-ofertas":"na_cfg_ofertas","na-v20-historico":"na_historico","na-last-login":"na_cfg_ofertas","na-v21-conceptos-activos":"na_cfg_ofertas","na-backup-auto":"na_cfg_ofertas","na-v25-hsse-sups":"na_registros","na-v25-hsse-cfg":"na_cfg_ofertas"};const _sbFetch=async(path,opts={})=>{const r=await fetch(SB_URL+path,{...opts,headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json',...(opts.headers||{})}});if(!r.ok){const e=await r.text();console.error('SB error',r.status,e);return null;}const ct=r.headers.get('content-type')||'';return ct.includes('json')?r.json():null;};window.storage={get:async(key)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;const rows=await _sbFetch('/rest/v1/'+tbl+'?id=eq.'+encodeURIComponent(key)+'&select=data',{method:'GET'});if(!rows||rows.length===0){// Supabase empty - check local backup
 const bk=localStorage.getItem('na_bk_'+key);if(bk){console.warn('[NorAcua] Supabase vacío para '+key+', usando backup local');return {key,value:bk};}return null;}return {key,value:rows[0].data};},set:async(key,value)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;// Save to localStorage backup first
 try{localStorage.setItem('na_bk_'+key,value);localStorage.setItem('na_bk_ts',new Date().toISOString());}catch(e){}await _sbFetch('/rest/v1/'+tbl,{method:'POST',body:JSON.stringify([{id:key,data:value,updated_at:new Date().toISOString()}]),headers:{'Prefer':'resolution=merge-duplicates,return=minimal'}});return {key,value};},delete:async(key)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;await _sbFetch('/rest/v1/'+tbl+'?id=eq.'+encodeURIComponent(key),{method:'DELETE'});return {key,deleted:true}}};
 const{useState,useEffect,useRef,useMemo,createElement}=React;
@@ -83,7 +83,7 @@ async function autoBackup(datos) {
     Object.keys(localStorage).filter(k => k.startsWith('na_autobk_na-backup-')).sort().reverse().slice(7).forEach(k => localStorage.removeItem(k));
   } catch(e) { console.warn('[NorAcua] autoBackup error:', e.message); }
 }
-const APP_VERSION = "2.4";
+const APP_VERSION = "2.5";
 if (typeof window !== "undefined" && window.localStorage) {
   const lastLoad = window.localStorage.getItem("na_lastload");
   const now = Date.now();
@@ -108,7 +108,9 @@ const SK = {
   estaciones: "na-v20-estaciones",
   ofertas: "na-v21-ofertas",
   cfgOfertas: "na-v21-cfg-ofertas",
-  cActivos: "na-v21-conceptos-activos"
+  cActivos: "na-v21-conceptos-activos",
+  hsseSups: "na-v25-hsse-sups",
+  hsseCfg: "na-v25-hsse-cfg"
 };
 const ZONAS = ["CENTRO", "NORTE", "CATALUÑA", "BALEARES", "OTROS"];
 const IVA_OPS = [{v:0,l:"0%"},{v:4,l:"4%"},{v:10,l:"10%"},{v:21,l:"21%"}];
@@ -127,7 +129,8 @@ const EMPRESA = {
 const DEF_PWS = {
   jordi: "2b180b31bca02167b63c0f648338d775b4f13748b3bc11caa240d9336db51a82",
   yennyfer: "45094d7b40fc892aaf317ccfb29d3499631a52af9b906dc282af7e38c29aa267",
-  tecnico: "11df7ee7736bb5b4de519dece0960baaec6d5e0d8f9a4a6c561288cff927f80d"
+  tecnico: "11df7ee7736bb5b4de519dece0960baaec6d5e0d8f9a4a6c561288cff927f80d",
+  carlos: "710d2d9160487e574f1f2b9ca5979eec1c61fbcf4042ec21d68e5aed51df1709"
 };
 const DEF_USERS = {
   jordi: {
@@ -142,6 +145,11 @@ const DEF_USERS = {
   },
   tecnico: {
     nombre: "Técnico NorAcua",
+    rol: "tecnico",
+    zonas: ZONAS
+  },
+  carlos: {
+    nombre: "Carlos García",
     rol: "tecnico",
     zonas: ZONAS
   }
@@ -1695,6 +1703,16 @@ function App() {
   const [registros, setRegistros] = useState([]);
   const [concs, setConcs] = useState([]);
   const [trabs, setTrabs] = useState(["Daniel", "Jordi Santos", "Yennyfer Lemus", "Técnico NorAcua"]);
+  // HSSE v2.5
+  const [hsseSups, setHsseSups] = useState([]);
+  const [hsseHist, setHsseHist] = useState([]);
+  const [hsseCfg, setHsseCfg] = useState({tiposActividad:["Obra menor mantenimiento","Itinerante","Obra menor","Obra mayor"],preciosPorZona:{},tecnicosExternos:[],poAnual:"",clienteIdBP:""});
+  const [viewH, setViewH] = useState("registro");
+  const [filtroHDesde, setFiltroHDesde] = useState("");
+  const [filtroHHasta, setFiltroHHasta] = useState("");
+  const [mHsseReg, setMHsseReg] = useState(false);
+  const [mHsseEdit, setMHsseEdit] = useState(null);
+  const [fHs, setFHs] = useState({site:"",tipoActividad:"",pctAuditoria:"",obraConSupervision:"",fecha:"",horas:"",supervisor:"",encargo:"",zona:"",incidencias:"No",motivoSupervision:"",empresa:"",comentarios:""});
   // FIX #11: responsables con sexo
   const [resps, setResps] = useState([{
     nombre: "Concepción Gutierrez",
@@ -1844,13 +1862,13 @@ function App() {
         }]));
         setUsrs(merged);
         setHashesReady(true);
-        const [p, r, t, rs, h, cl, se, fa, es, of, co] = await Promise.all([ld(SK.proj, []), ld(SK.regs, []), ld(SK.trabs, ["Daniel", "Jordi Santos", "Yennyfer Lemus", "Técnico NorAcua"]), ld(SK.resps, [{
+        const [p, r, t, rs, h, cl, se, fa, es, of, co, hsSup, hsCfg] = await Promise.all([ld(SK.proj, []), ld(SK.regs, []), ld(SK.trabs, ["Daniel", "Jordi Santos", "Yennyfer Lemus", "Técnico NorAcua", "Carlos García"]), ld(SK.resps, [{
           nombre: "Concepción Gutierrez",
           sexo: "F"
         }, {
           nombre: "Daniel Romero",
           sexo: "M"
-        }]), ld(SK.hist, []), ld(SK.clientes, CLIENTES_DEF), ld(SK.series, SERIES_DEF), ld(SK.facturas, []), ld(SK.estaciones, []), ld(SK.ofertas, []).then(v => Array.isArray(v) ? v : Object.values(v || {})), ld(SK.cfgOfertas, CFG_OFERTAS_DEF)]);
+        }]), ld(SK.hist, []), ld(SK.clientes, CLIENTES_DEF), ld(SK.series, SERIES_DEF), ld(SK.facturas, []), ld(SK.estaciones, []), ld(SK.ofertas, []).then(v => Array.isArray(v) ? v : Object.values(v || {})), ld(SK.cfgOfertas, CFG_OFERTAS_DEF), ld(SK.hsseSups, []), ld(SK.hsseCfg, {tiposActividad:["Obra menor mantenimiento","Itinerante","Obra menor","Obra mayor"],preciosPorZona:{},tecnicosExternos:[],poAnual:"",clienteIdBP:""})]);
         setProyectos(p);
         setRegistros(r);
         setTrabs(t);
@@ -1875,6 +1893,8 @@ function App() {
         setEstaciones(es);
         setOfertas(of);
         setCfgOfertas(co);
+        if(Array.isArray(hsSup))setHsseSups(hsSup);
+        if(hsCfg&&typeof hsCfg==="object"){var _h=hsCfg.hist;var _cfg=Object.assign({},hsCfg);delete _cfg.hist;setHsseCfg(function(c){return Object.assign({},c,_cfg);});if(Array.isArray(_h))setHsseHist(_h);}
       } catch (e) {
         console.error(e);
         setHashesReady(true);
@@ -1945,6 +1965,8 @@ function App() {
   useEffect(() => {
     if (!loading) sv(SK.cfgOfertas, cfgOfertas);
   }, [cfgOfertas, loading]);
+  useEffect(function(){if(!loading)sv(SK.hsseSups,hsseSups);},[hsseSups,loading]);
+  useEffect(function(){if(!loading)sv(SK.hsseCfg,Object.assign({},hsseCfg,{hist:hsseHist}));},[hsseCfg,hsseHist,loading]);
   const saveConcs = async arr => {
     setConcs(arr);
     if (keyRef.current) {
@@ -2971,7 +2993,7 @@ function App() {
     k: "ofertas",
     l: "Ofertas",
     i: P.offer
-  }] : [])];
+  }] : []), {k: "hsse", l: "HSSE", i: P.eye}];
   if (fase === "login" || !user) {
     return /*#__PURE__*/React.createElement("div", {
       style: {
@@ -3063,10 +3085,11 @@ function App() {
       }
     }, hashesReady ? "Acceder" : "Preparando...")));
   }
-  const curNav = modulo === "trabajos" ? navTrabajos : modulo === "facturacion" ? navFact : isAdmin ? navOfertas : navOfertasTec;
-  const curView = modulo === "trabajos" ? view : modulo === "facturacion" ? viewF : viewO;
+  const navHsse = [{k:"registro",l:"Registro",i:P.clip},{k:"revision",l:"Mis supervisiones",i:P.eye}];
+  const curNav = modulo === "trabajos" ? navTrabajos : modulo === "facturacion" ? navFact : modulo === "hsse" ? navHsse : isAdmin ? navOfertas : navOfertasTec;
+  const curView = modulo === "trabajos" ? view : modulo === "facturacion" ? viewF : modulo === "hsse" ? viewH : viewO;
   const setCurView = v => {
-    if (modulo === "trabajos") setView(v);else if (modulo === "facturacion") {
+    if (modulo === "trabajos") setView(v);else if (modulo === "hsse") setViewH(v);else if (modulo === "facturacion") {
       setViewF(v);
       if (v !== "editor") setEditDoc(null);
     } else {
@@ -8890,7 +8913,189 @@ function App() {
   }, /*#__PURE__*/React.createElement(Ic, {
     d: P.dl,
     sz: 12
-  }), " Descargar"))))), showBuzon && isAdmin && /*#__PURE__*/React.createElement("div", {
+  }), " Descargar"))))),
+  modulo === "hsse" && React.createElement(React.Fragment, null,
+
+    viewH==="registro" && React.createElement(React.Fragment, null,
+      React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}},
+        React.createElement("h2",{style:{fontSize:17,fontWeight:700}},"Supervisiones HSSE"),
+        React.createElement("button",{
+          onClick:function(){
+            setFHs({site:"",tipoActividad:"",pctAuditoria:"",obraConSupervision:"",fecha:today(),horas:"",supervisor:user&&user.nombre||"",encargo:"",zona:"",incidencias:"No",motivoSupervision:"",empresa:"",comentarios:""});
+            setMHsseReg(true);
+          },
+          style:{background:"#00c8c8",color:"#fff",border:"none",borderRadius:6,padding:"6px 14px",cursor:"pointer",fontSize:12,fontWeight:600}
+        },"\uFF0B Nueva supervisi\u00F3n")
+      ),
+      React.createElement("div",{style:{display:"flex",gap:7,marginBottom:11,flexWrap:"wrap"}},
+        React.createElement("input",{type:"date",value:filtroHDesde,onChange:function(e){setFiltroHDesde(e.target.value);},style:{padding:"5px 9px",border:"1px solid #dde2e8",borderRadius:5,fontSize:11,fontFamily:"inherit",background:"#f9fafb"}}),
+        React.createElement("input",{type:"date",value:filtroHHasta,onChange:function(e){setFiltroHHasta(e.target.value);},style:{padding:"5px 9px",border:"1px solid #dde2e8",borderRadius:5,fontSize:11,fontFamily:"inherit",background:"#f9fafb"}})
+      ),
+      React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8}},
+        hsseSups.filter(function(s){
+          var names=new Set([user&&user.nombre,user&&user.id].filter(Boolean));
+          if(!names.has(s.supervisor)&&!names.has(s.creadoPor))return false;
+          if(s.estado==="aprobado")return false;
+          if(filtroHDesde&&s.fecha<filtroHDesde)return false;
+          if(filtroHHasta&&s.fecha>filtroHHasta)return false;
+          return true;
+        }).sort(function(a,b){return(b.fecha||"").localeCompare(a.fecha||"");}).map(function(s){
+          var horasVis=s.horasOrig!=null?s.horasOrig:s.horas;
+          var canEdit=s.estado==="pendiente";
+          return React.createElement("div",{key:s.id,style:{background:"#fff",borderRadius:10,border:"1px solid #dde2e8",padding:"10px 14px"}},
+            React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}},
+              React.createElement("div",{style:{flex:1}},
+                React.createElement("div",{style:{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:3}},
+                  React.createElement("span",{style:{fontWeight:700,fontSize:13}},s.site||"Sin site"),
+                  React.createElement("span",{style:{fontSize:11,color:"#8a9199"}},"·"),
+                  React.createElement("span",{style:{fontSize:12,color:"#555e66"}},s.tipoActividad||"\u2014")
+                ),
+                React.createElement("div",{style:{fontSize:11,color:"#8a9199",display:"flex",gap:8,flexWrap:"wrap"}},
+                  React.createElement("span",null,s.fecha?s.fecha.substring(8,10)+"/"+s.fecha.substring(5,7)+"/"+s.fecha.substring(0,4):"\u2014"),
+                  s.zona&&React.createElement("span",null,"\u00B7 "+s.zona),
+                  React.createElement("span",null,"\u00B7 "+horasVis+"h"),
+                  s.incidencias==="S\u00ED"&&React.createElement("span",{style:{color:"#d03030",fontWeight:600}},"\u26A0 Incidencia")
+                )
+              ),
+              canEdit&&React.createElement("div",{style:{display:"flex",gap:4}},
+                React.createElement("button",{onClick:function(){setMHsseEdit(Object.assign({},s,{horas:s.horasOrig!=null?s.horasOrig:s.horas}));},style:{background:"transparent",border:"1px solid #dde2e8",borderRadius:5,padding:"3px 8px",cursor:"pointer",fontSize:11}},"\u270E Editar"),
+                React.createElement("button",{onClick:function(){if(window.confirm("\u00BFEliminar esta supervisi\u00F3n?"))setHsseSups(function(p){return p.filter(function(x){return x.id!==s.id;});});},style:{background:"transparent",border:"1px solid #d03030",borderRadius:5,padding:"3px 8px",cursor:"pointer",fontSize:11,color:"#d03030"}},"\uD83D\uDDD1")
+              )
+            ),
+            (s.motivoSupervision||s.comentarios)&&React.createElement("div",{style:{marginTop:6,paddingTop:6,borderTop:"1px solid #dde2e8",fontSize:11,color:"#555e66",display:"flex",gap:10,flexWrap:"wrap"}},
+              s.motivoSupervision&&React.createElement("span",null,"Motivo: "+s.motivoSupervision),
+              s.comentarios&&React.createElement("span",null,"Comentarios: "+s.comentarios)
+            )
+          );
+        }),
+        hsseSups.filter(function(s){
+          var names=new Set([user&&user.nombre,user&&user.id].filter(Boolean));
+          return (names.has(s.supervisor)||names.has(s.creadoPor))&&s.estado!=="aprobado";
+        }).length===0&&React.createElement("div",{style:{textAlign:"center",padding:30,color:"#8a9199"}},"No hay supervisiones pendientes.")
+      )
+    ),
+
+    viewH==="revision" && React.createElement(React.Fragment, null,
+      React.createElement("h2",{style:{fontSize:17,fontWeight:700,marginBottom:12}},"Mis supervisiones aprobadas"),
+      (function(){
+        var names=new Set([user&&user.nombre,user&&user.id].filter(Boolean));
+        var mias=hsseSups.filter(function(s){return (names.has(s.supervisor)||names.has(s.creadoPor))&&s.estado==="aprobado";}).sort(function(a,b){return(b.fecha||"").localeCompare(a.fecha||"");});
+        if(mias.length===0)return React.createElement("div",{style:{textAlign:"center",padding:30,color:"#8a9199"}},"No tienes supervisiones aprobadas a\u00FAn.");
+        var porMes={};
+        mias.forEach(function(s){var mes=s.fecha?s.fecha.substring(0,7):"";if(!porMes[mes])porMes[mes]=[];porMes[mes].push(s);});
+        return React.createElement(React.Fragment,null,
+          Object.entries(porMes).sort(function(a,b){return b[0].localeCompare(a[0]);}).map(function(entry){
+            var mes=entry[0];var sups=entry[1];
+            var mm=mes.substring(5,7);
+            var yy=mes.substring(0,4);
+            var nomMes=["","Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"][Number(mm)]||mes;
+            var totalH=sups.reduce(function(a,s){return a+Number(s.horasOrig||s.horas||0);},0);
+            return React.createElement("div",{key:mes,style:{marginBottom:14}},
+              React.createElement("div",{style:{background:"#1c3e5e",color:"#fff",borderRadius:"8px 8px 0 0",padding:"7px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}},
+                React.createElement("span",{style:{fontWeight:700,fontSize:13}},nomMes+" "+yy),
+                React.createElement("span",{style:{fontSize:11,opacity:.85}},sups.length+" supervisiones \u00B7 "+totalH+"h")
+              ),
+              React.createElement("div",{style:{border:"1px solid #dde2e8",borderTop:"none",borderRadius:"0 0 8px 8px",overflow:"hidden"}},
+                sups.map(function(s,i){
+                  var horasVis=s.horasOrig!=null?s.horasOrig:s.horas;
+                  var bg=i%2===0?"#fff":"#f5f8fc";
+                  return React.createElement("div",{key:s.id,style:{background:bg,padding:"8px 14px",borderBottom:i<sups.length-1?"1px solid #f0f0f0":"none",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}},
+                    React.createElement("div",{style:{flex:1}},
+                      React.createElement("div",{style:{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}},
+                        React.createElement("span",{style:{fontWeight:700,fontSize:12}},s.site||"Sin site"),
+                        React.createElement("span",{style:{fontSize:11,color:"#8a9199"}},"·"),
+                        React.createElement("span",{style:{fontSize:11,color:"#555e66"}},s.tipoActividad||"\u2014"),
+                        s.incidencias==="S\u00ED"&&React.createElement("span",{style:{fontSize:10,color:"#d03030",fontWeight:600}},"\u26A0 Incidencia")
+                      ),
+                      React.createElement("div",{style:{fontSize:10,color:"#8a9199",marginTop:2,display:"flex",gap:8,flexWrap:"wrap"}},
+                        React.createElement("span",null,s.fecha?s.fecha.substring(8,10)+"/"+s.fecha.substring(5,7):"\u2014"),
+                        s.zona&&React.createElement("span",null,"\u00B7 "+s.zona),
+                        React.createElement("span",null,"\u00B7 "+horasVis+"h"),
+                        s.empresa&&React.createElement("span",null,"\u00B7 "+s.empresa)
+                      ),
+                      (s.motivoSupervision||s.comentarios)&&React.createElement("div",{style:{fontSize:10,color:"#777",marginTop:2}},
+                        s.motivoSupervision&&React.createElement("span",null,s.motivoSupervision),
+                        s.motivoSupervision&&s.comentarios&&React.createElement("span",{style:{color:"#ccc"}}," \u00B7 "),
+                        s.comentarios&&React.createElement("span",null,s.comentarios)
+                      )
+                    ),
+                    React.createElement("div",{style:{fontSize:10,fontWeight:700,color:"#1a9e7a",background:"rgba(26,158,122,0.10)",padding:"2px 7px",borderRadius:10,whiteSpace:"nowrap"}},"Aprobada")
+                  );
+                })
+              )
+            );
+          })
+        );
+      })()
+    ),
+
+    (mHsseReg||mHsseEdit) && React.createElement(Modal, {
+      open: true,
+      title: mHsseEdit?"Editar supervisi\u00F3n HSSE":"Nueva supervisi\u00F3n HSSE",
+      onClose:function(){setMHsseReg(false);setMHsseEdit(null);}
+    },
+      React.createElement("div",{style:{marginBottom:9}},
+        React.createElement("div",{style:{fontSize:11,color:"#555e66",marginBottom:4,fontWeight:600}},"SITE (ES) *"),
+        React.createElement("div",{style:{display:"flex",gap:6}},
+          React.createElement("input",{list:"hsse-sites-dl",value:(mHsseEdit?mHsseEdit.site:fHs.site)||"",onChange:function(e){var v=e.target.value;if(mHsseEdit)setMHsseEdit(function(x){return Object.assign({},x,{site:v});});else setFHs(function(x){return Object.assign({},x,{site:v});});},placeholder:"Buscar o escribir EESS...",style:{flex:1,padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb",outline:"none"}}),
+          React.createElement("datalist",{id:"hsse-sites-dl"},estaciones.map(function(e){return React.createElement("option",{key:e,value:e});})),
+          (mHsseEdit?mHsseEdit.site:fHs.site)&&!estaciones.includes((mHsseEdit?mHsseEdit.site:fHs.site))&&React.createElement("button",{onClick:function(){var v=((mHsseEdit?mHsseEdit.site:fHs.site)||"").trim();if(v&&!estaciones.includes(v))setEstaciones(function(p){return p.concat([v]).sort();});},style:{background:"#00c8c8",color:"#fff",border:"none",borderRadius:5,padding:"6px 10px",cursor:"pointer",fontSize:11,fontWeight:600,whiteSpace:"nowrap"}},"+ A\u00F1adir")
+        )
+      ),
+      React.createElement("div",{style:{marginBottom:9}},
+        React.createElement("div",{style:{fontSize:11,color:"#555e66",marginBottom:4,fontWeight:600}},"Tipo de actividad"),
+        React.createElement("select",{value:(mHsseEdit?mHsseEdit.tipoActividad:fHs.tipoActividad)||"",onChange:function(e){var v=e.target.value;if(mHsseEdit)setMHsseEdit(function(x){return Object.assign({},x,{tipoActividad:v});});else setFHs(function(x){return Object.assign({},x,{tipoActividad:v});});},style:{width:"100%",padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb"}},
+          React.createElement("option",{value:""},"Seleccionar tipo..."),
+          (hsseCfg.tiposActividad||[]).map(function(t){return React.createElement("option",{key:t,value:t},t);})
+        )
+      ),
+      React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}},
+        React.createElement("div",null,React.createElement("div",{style:{fontSize:11,color:"#555e66",marginBottom:4,fontWeight:600}},"\uFF05 Audit."),React.createElement("input",{type:"number",value:(mHsseEdit?mHsseEdit.pctAuditoria:fHs.pctAuditoria)||"",onChange:function(e){var v=e.target.value;if(mHsseEdit)setMHsseEdit(function(x){return Object.assign({},x,{pctAuditoria:v});});else setFHs(function(x){return Object.assign({},x,{pctAuditoria:v});});},style:{width:"100%",padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb",outline:"none"}})),
+        React.createElement("div",null,React.createElement("div",{style:{fontSize:11,color:"#555e66",marginBottom:4,fontWeight:600}},"\u00BFObra con supervisi\u00F3n?"),React.createElement("select",{value:(mHsseEdit?mHsseEdit.obraConSupervision:fHs.obraConSupervision)||"",onChange:function(e){var v=e.target.value;if(mHsseEdit)setMHsseEdit(function(x){return Object.assign({},x,{obraConSupervision:v});});else setFHs(function(x){return Object.assign({},x,{obraConSupervision:v});});},style:{width:"100%",padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb"}},React.createElement("option",{value:""},"\u2014"),React.createElement("option",{value:"S\u00ED"},"S\u00ED"),React.createElement("option",{value:"No"},"No"))),
+        React.createElement("div",null,React.createElement("div",{style:{fontSize:11,color:"#555e66",marginBottom:4,fontWeight:600}},"Fecha *"),React.createElement("input",{type:"date",value:(mHsseEdit?mHsseEdit.fecha:fHs.fecha)||"",onChange:function(e){var v=e.target.value;if(mHsseEdit)setMHsseEdit(function(x){return Object.assign({},x,{fecha:v});});else setFHs(function(x){return Object.assign({},x,{fecha:v});});},style:{width:"100%",padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb",outline:"none"}})),
+        React.createElement("div",null,React.createElement("div",{style:{fontSize:11,color:"#555e66",marginBottom:4,fontWeight:600}},"Horas *"),React.createElement("input",{type:"number",min:"0",step:"0.5",value:(mHsseEdit?mHsseEdit.horas:fHs.horas)||"",onChange:function(e){var v=e.target.value;if(mHsseEdit)setMHsseEdit(function(x){return Object.assign({},x,{horas:v});});else setFHs(function(x){return Object.assign({},x,{horas:v});});},style:{width:"100%",padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb",outline:"none"}}))
+      ),
+      React.createElement("div",{style:{marginTop:9,marginBottom:9}},
+        React.createElement("div",{style:{fontSize:11,color:"#555e66",marginBottom:4,fontWeight:600}},"Supervisor de seguridad"),
+        React.createElement("select",{value:(mHsseEdit?mHsseEdit.supervisor:fHs.supervisor)||(user&&user.nombre)||"",onChange:function(e){var v=e.target.value;if(mHsseEdit)setMHsseEdit(function(x){return Object.assign({},x,{supervisor:v});});else setFHs(function(x){return Object.assign({},x,{supervisor:v});});},style:{width:"100%",padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb"}},
+          React.createElement("option",{value:""},"Seleccionar..."),
+          trabs.concat(hsseCfg.tecnicosExternos||[]).map(function(t){return React.createElement("option",{key:t,value:t},t);})
+        )
+      ),
+      React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:9}},
+        React.createElement("div",null,React.createElement("div",{style:{fontSize:11,color:"#555e66",marginBottom:4,fontWeight:600}},"Encargo trabajo"),React.createElement("select",{value:(mHsseEdit?mHsseEdit.encargo:fHs.encargo)||"",onChange:function(e){var v=e.target.value;if(mHsseEdit)setMHsseEdit(function(x){return Object.assign({},x,{encargo:v});});else setFHs(function(x){return Object.assign({},x,{encargo:v});});},style:{width:"100%",padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb"}},React.createElement("option",{value:""},"\u2014"),resps.map(function(r){var n=typeof r==="object"?r.nombre:r;return React.createElement("option",{key:n,value:n},n);}))),
+        React.createElement("div",null,React.createElement("div",{style:{fontSize:11,color:"#555e66",marginBottom:4,fontWeight:600}},"Zona"),React.createElement("select",{value:(mHsseEdit?mHsseEdit.zona:fHs.zona)||"",onChange:function(e){var v=e.target.value;if(mHsseEdit)setMHsseEdit(function(x){return Object.assign({},x,{zona:v});});else setFHs(function(x){return Object.assign({},x,{zona:v});});},style:{width:"100%",padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb"}},React.createElement("option",{value:""},"\u2014"),["CENTRO","NORTE","CATALU\u00D1A","BALEARES","OTROS"].map(function(z){return React.createElement("option",{key:z,value:z},z);}))),
+        React.createElement("div",null,React.createElement("div",{style:{fontSize:11,color:"#555e66",marginBottom:4,fontWeight:600}},"Incidencias"),React.createElement("select",{value:(mHsseEdit?mHsseEdit.incidencias:fHs.incidencias)||"No",onChange:function(e){var v=e.target.value;if(mHsseEdit)setMHsseEdit(function(x){return Object.assign({},x,{incidencias:v});});else setFHs(function(x){return Object.assign({},x,{incidencias:v});});},style:{width:"100%",padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb"}},React.createElement("option",{value:"No"},"No"),React.createElement("option",{value:"S\u00ED"},"S\u00ED")))
+      ),
+      React.createElement("div",{style:{marginTop:9}},React.createElement("div",{style:{fontSize:11,color:"#555e66",marginBottom:4,fontWeight:600}},"Motivo supervisi\u00F3n"),React.createElement("input",{value:(mHsseEdit?mHsseEdit.motivoSupervision:fHs.motivoSupervision)||"",onChange:function(e){var v=e.target.value;if(mHsseEdit)setMHsseEdit(function(x){return Object.assign({},x,{motivoSupervision:v});});else setFHs(function(x){return Object.assign({},x,{motivoSupervision:v});});},style:{width:"100%",padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb",outline:"none"}})),
+      React.createElement("div",{style:{marginTop:9}},React.createElement("div",{style:{fontSize:11,color:"#555e66",marginBottom:4,fontWeight:600}},"Empresa"),React.createElement("input",{value:(mHsseEdit?mHsseEdit.empresa:fHs.empresa)||"",onChange:function(e){var v=e.target.value;if(mHsseEdit)setMHsseEdit(function(x){return Object.assign({},x,{empresa:v});});else setFHs(function(x){return Object.assign({},x,{empresa:v});});},style:{width:"100%",padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb",outline:"none"}})),
+      React.createElement("div",{style:{marginTop:9}},React.createElement("div",{style:{fontSize:11,color:"#555e66",marginBottom:4,fontWeight:600}},"Comentarios"),React.createElement("input",{value:(mHsseEdit?mHsseEdit.comentarios:fHs.comentarios)||"",onChange:function(e){var v=e.target.value;if(mHsseEdit)setMHsseEdit(function(x){return Object.assign({},x,{comentarios:v});});else setFHs(function(x){return Object.assign({},x,{comentarios:v});});},style:{width:"100%",padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb",outline:"none"}})),
+      React.createElement("div",{style:{display:"flex",gap:8,marginTop:14}},
+        React.createElement("button",{
+          onClick:function(){
+            var data=mHsseEdit||fHs;
+            var site=(data.site||"").trim();
+            if(!site||!data.fecha||!data.horas){alert("Site, fecha y horas son obligatorios.");return;}
+            if(site&&!estaciones.includes(site))setEstaciones(function(p){return p.concat([site]).sort();});
+            if(mHsseEdit){
+              var editId=mHsseEdit.id;
+              var saveData=Object.assign({},data,{site:site,horasOrig:data.horasOrig||data.horas,horasAdmin:data.horas,estado:"pendiente"});
+              setHsseSups(function(p){return p.map(function(x){return x.id===editId?saveData:x;});});
+              setMHsseEdit(null);
+            } else {
+              setHsseSups(function(p){return [{site:site,tipoActividad:data.tipoActividad||"",pctAuditoria:data.pctAuditoria||"",obraConSupervision:data.obraConSupervision||"",fecha:data.fecha,horas:data.horas,horasOrig:data.horas,horasAdmin:data.horas,supervisor:data.supervisor||"",encargo:data.encargo||"",zona:data.zona||"",incidencias:data.incidencias||"No",motivoSupervision:data.motivoSupervision||"",empresa:data.empresa||"",comentarios:data.comentarios||"",id:"hs_"+Date.now(),estado:"pendiente",creadoPor:user&&user.nombre||"",fechaCreacion:new Date().toISOString()}].concat(p);});
+              setMHsseReg(false);
+              setFHs({site:"",tipoActividad:"",pctAuditoria:"",obraConSupervision:"",fecha:today(),horas:"",supervisor:user&&user.nombre||"",encargo:"",zona:"",incidencias:"No",motivoSupervision:"",empresa:"",comentarios:""});
+            }
+          },
+          style:{background:"#00c8c8",color:"#fff",border:"none",borderRadius:6,padding:"7px 16px",cursor:"pointer",fontSize:12,fontWeight:600}
+        },mHsseEdit?"Guardar cambios":"Crear supervisi\u00F3n"),
+        React.createElement("button",{onClick:function(){setMHsseReg(false);setMHsseEdit(null);},style:{background:"transparent",border:"1px solid #dde2e8",borderRadius:6,padding:"7px 16px",cursor:"pointer",fontSize:12}},"Cancelar")
+      )
+    )
+
+  ),
+  showBuzon && isAdmin && /*#__PURE__*/React.createElement("div", {
     style: {
       position: "fixed",
       top: 56,
