@@ -1701,6 +1701,7 @@ function App() {
   }])));
   const [proyectos, setProyectos] = useState([]);
   const [registros, setRegistros] = useState([]);
+  const [deletedRegIds, setDeletedRegIds] = useState(new Set());
   const [concs, setConcs] = useState([]);
   const [trabs, setTrabs] = useState(["Daniel", "Jordi Santos", "Yennyfer Lemus", "Técnico NorAcua"]);
   // HSSE v2.5
@@ -1711,6 +1712,7 @@ function App() {
   const [filtroHDesde, setFiltroHDesde] = useState("");
   const [filtroHHasta, setFiltroHHasta] = useState("");
   const [mHsseReg, setMHsseReg] = useState(false);
+  const [collapsedMeses, setCollapsedMeses] = useState({});
   const [mHsseEdit, setMHsseEdit] = useState(null);
   const [fHs, setFHs] = useState({site:"",tipoActividad:"",pctAuditoria:"",obraConSupervision:"",fecha:"",horas:"",supervisor:"",encargo:"",zona:"",incidencias:"No",motivoSupervision:"",empresa:"",comentarios:""});
   // FIX #11: responsables con sexo
@@ -1922,9 +1924,20 @@ function App() {
               r.trabajador === user.id || r.creadoPor === user.id
             );
             const myIds = new Set(myRegs.map(r => r.id));
-            // Keep all fresh records NOT belonging to this user
-            const othersRegs = fresh.filter(r => !myIds.has(r.id));
-            const merged = [...myRegs, ...othersRegs];
+            // For own records, keep admin's version if it has been approved/certified
+            const myRegsFinal = myRegs.map(r => {
+              const freshR = fresh.find(f => f.id === r.id);
+              if (freshR && (freshR.estado === 'aprobado' || freshR.estadoCertif === 'finalizado' ||
+                  (freshR.lineasGrupo || []).some(l => l.certifAprobada))) {
+                return freshR; // preserve admin's approval
+              }
+              return r;
+            });
+            // Keep all fresh records NOT belonging to this user (excluding explicitly deleted)
+            const othersRegs = fresh.filter(r => !myIds.has(r.id) && !deletedRegIds.has(r.id));
+            // Also exclude deleted from own records
+            const mergedOwn = myRegsFinal.filter(r => !deletedRegIds.has(r.id));
+            const merged = [...mergedOwn, ...othersRegs];
             await sv(SK.regs, merged);
           } else {
             await sv(SK.regs, registros);
@@ -1967,6 +1980,24 @@ function App() {
   }, [cfgOfertas, loading]);
   useEffect(function(){if(!loading)sv(SK.hsseSups,hsseSups);},[hsseSups,loading]);
   useEffect(function(){if(!loading)sv(SK.hsseCfg,Object.assign({},hsseCfg,{hist:hsseHist}));},[hsseCfg,hsseHist,loading]);
+  // Refresh registros from Supabase when opening Archivadas tab (picks up admin approvals)
+  useEffect(function(){
+    if(view==="archivadas"&&!loading&&user){
+      ld(SK.regs,[]).then(function(fresh){
+        if(fresh&&fresh.length>0){
+          setRegistros(function(prev){
+            // Merge: prefer fresh approved/certified versions
+            var freshMap=Object.fromEntries(fresh.map(function(r){return[r.id,r];}));
+            return prev.map(function(r){
+              var f=freshMap[r.id];
+              if(f&&(f.estado==="aprobado"||f.estadoCertif==="finalizado"||(f.lineasGrupo||[]).some(function(l){return l.certifAprobada;}))){return f;}
+              return r;
+            }).concat(fresh.filter(function(r){return !prev.find(function(p){return p.id===r.id;});}));
+          });
+        }
+      });
+    }
+  },[view,loading,user]);
   const saveConcs = async arr => {
     setConcs(arr);
     if (keyRef.current) {
@@ -2223,7 +2254,10 @@ function App() {
     ...x,
     precioManual: v === "" ? null : Number(v)
   } : x));
-  const delR = id => setRegistros(r => r.filter(x => x.id !== id));
+  const delR = id => {
+    setDeletedRegIds(s => { const n = new Set(s); n.add(id); return n; });
+    setRegistros(r => r.filter(x => x.id !== id));
+  };
   // FIX #6: técnico puede editar sus pendientes
   const canEditReg = r => !isAdmin ? r.estado === "pendiente" && (r.trabajador === user?.nombre || r.creadoPor === user?.nombre) : true;
   const savEC = async () => {
@@ -2338,6 +2372,10 @@ function App() {
     const proy = fInf.pid ? gP(fInf.pid) : null;
     const rs = registros.filter(r => {
       if (r.estado !== "aprobado") return false;
+      // Exclude fully finalized — they belong in Archivadas
+      const _lns = r.lineasGrupo || [];
+      const _allAp = _lns.length > 0 && _lns.every(l => l.certifAprobada);
+      if (r.estadoCertif === "finalizado" || _allAp) return false;
       if (proy && r.proyectoId !== proy.id) return false;
       if (fInf.estacion && !proy) {
         const rp = proyectos.find(p => p.id === r.proyectoId);
@@ -2856,17 +2894,17 @@ function App() {
     if (filtroRTrab) {
       const _abbrMap = {'JSF':'Jordi Santos','YLS':'Yennyfer Lemus','DRF':'Daniel','ILS':'Ignacio López'};
       const _abbrRev = Object.fromEntries(Object.entries(_abbrMap).map(([k,v])=>[v,k]));
-      r = r.filter(x => x.trabajador === filtroRTrab || x.trabajador === _abbrRev[filtroRTrab]);
+      r = r.filter(x => (x.trabajador||"").toLowerCase().includes(filtroRTrab.toLowerCase()) || (x.trabajador||"") === _abbrRev[filtroRTrab]);
     }
-    if (filtroRPid) r = r.filter(x => x.proyectoId === filtroRPid);
-    if (filtroRES) r = r.filter(x => gP(x.proyectoId)?.estacion === filtroRES);
+    if (filtroRPid) r = r.filter(x => { var p=gP(x.proyectoId); return p && (p.nombre+(p.estacion?" | "+p.estacion:"")+" ("+p.zona+")").toLowerCase().includes(filtroRPid.toLowerCase()); });
+    if (filtroRES) r = r.filter(x => (gP(x.proyectoId)?.estacion||"").toLowerCase().includes(filtroRES.toLowerCase()));
     if (filtroRSt) r = r.filter(x => x.estado === filtroRSt);
     if (isAdmin && filtroRCreador) r = r.filter(x => (x.creadoPor || x.trabajador) === filtroRCreador);
     // Exclude finalizadas from main registro view (they go to Archivadas tab)
     r = r.filter(x => {
       const lineas = x.lineasGrupo || [];
       const allAprob = lineas.length > 0 && lineas.every(l => l.certifAprobada);
-      return !(x.estadoCertif === "finalizado" || allAprob);
+      return !(x.estadoCertif === "finalizado" || allAprob || x.estado === "aprobado");
     });
     r.sort((a, b) => {
       if (ordenR === "fecha_desc") return b.fecha.localeCompare(a.fecha);
@@ -2928,12 +2966,12 @@ function App() {
     marginBottom: 7
   };
   const archivadasCount = registros.filter(r => {
-    const _abbrMap = {"JSF":"Jordi Santos","YLS":"Yennyfer Lemus","DRF":"Daniel","ILS":"Ignacio López"};
+    const _abbrMap = {"JSF":"Jordi Santos","YLS":"Yennyfer Lemus","DRF":"Daniel","ILS":"Ignacio López","CGR":"Carlos García"};
     const _userNames = new Set([user?.nombre, user?.id, ...Object.entries(_abbrMap).filter(([,v])=>v===user?.nombre).map(([k])=>k)].filter(Boolean));
     if (!isAdmin && !_userNames.has(r.trabajador) && !_userNames.has(r.creadoPor)) return false;
     const lineas = r.lineasGrupo || [];
     const allAprob = lineas.length > 0 && lineas.every(l => l.certifAprobada);
-    return r.estadoCertif === "finalizado" || allAprob;
+    return r.estadoCertif === "finalizado" || allAprob || r.estado === "aprobado";
   }).length;
   const navTrabajos = [{
     k: "registro",
@@ -3085,7 +3123,8 @@ function App() {
       }
     }, hashesReady ? "Acceder" : "Preparando...")));
   }
-  const navHsse = [{k:"registro",l:"Registro",i:P.clip},{k:"revision",l:"Mis supervisiones",i:P.eye}];
+  var _hsseNuevasAprob = hsseSups.filter(function(s){var names=new Set([user&&user.nombre,user&&user.id].filter(Boolean));return (names.has(s.supervisor)||names.has(s.creadoPor))&&s.estado==="aprobado"&&!s._vistaTec;}).length;
+  const navHsse = [{k:"registro",l:"Registro",i:P.clip},{k:"revision",l:_hsseNuevasAprob>0?"Mis supervisiones ("+_hsseNuevasAprob+")":"Mis supervisiones",i:P.eye}];
   const curNav = modulo === "trabajos" ? navTrabajos : modulo === "facturacion" ? navFact : modulo === "hsse" ? navHsse : isAdmin ? navOfertas : navOfertasTec;
   const curView = modulo === "trabajos" ? view : modulo === "facturacion" ? viewF : modulo === "hsse" ? viewH : viewO;
   const setCurView = v => {
@@ -3305,38 +3344,25 @@ function App() {
       marginBottom: 11,
       flexWrap: "wrap"
     }
-  }, /*#__PURE__*/React.createElement("select", {
-    value: filtroRPid,
-    onChange: e => setFiltroRPid(e.target.value),
-    style: {
-      padding: "5px 9px",
-      border: `1px solid ${C.border}`,
-      borderRadius: 5,
-      fontSize: 11,
-      fontFamily: "inherit",
-      background: C.inputBg
-    }
-  }, /*#__PURE__*/React.createElement("option", {
-    value: ""
-  }, "Todos proyectos"), proyectos.map(p => /*#__PURE__*/React.createElement("option", {
-    key: p.id,
-    value: p.id
-  }, p.nombre, p.estacion ? ` | ${p.estacion}` : "", " (", p.zona, ")"))), /*#__PURE__*/React.createElement("select", {
-    value: filtroRES,
-    onChange: e => setFiltroRES(e.target.value),
-    style: {
-      padding: "5px 9px",
-      border: `1px solid ${C.border}`,
-      borderRadius: 5,
-      fontSize: 11,
-      fontFamily: "inherit",
-      background: C.inputBg
-    }
-  }, /*#__PURE__*/React.createElement("option", {
-    value: ""
-  }, "Todas las ES"), estaciones.map(e => /*#__PURE__*/React.createElement("option", {
-    key: e
-  }, e))), /*#__PURE__*/React.createElement("select", {
+  }, /*#__PURE__*/React.createElement(React.Fragment,{key:"fp"},
+    /*#__PURE__*/React.createElement("datalist",{id:"reg-proy-dl-t"},
+      proyectos.map(p=>/*#__PURE__*/React.createElement("option",{key:p.id,value:p.nombre+(p.estacion?" | "+p.estacion:"")+" ("+p.zona+")"}))
+    ),
+    /*#__PURE__*/React.createElement("input",{
+      list:"reg-proy-dl-t",placeholder:"Proyecto...",value:filtroRPid,
+      onChange:e=>setFiltroRPid(e.target.value),
+      style:{padding:"5px 9px",border:"1px solid "+C.border,borderRadius:5,fontSize:11,fontFamily:"inherit",background:C.inputBg,outline:"none",minWidth:120}
+    })
+  ), /*#__PURE__*/React.createElement(React.Fragment,{key:"fes"},
+    /*#__PURE__*/React.createElement("datalist",{id:"reg-es-dl-t"},
+      estaciones.map(e=>/*#__PURE__*/React.createElement("option",{key:e,value:e}))
+    ),
+    /*#__PURE__*/React.createElement("input",{
+      list:"reg-es-dl-t",placeholder:"Site...",value:filtroRES,
+      onChange:e=>setFiltroRES(e.target.value),
+      style:{padding:"5px 9px",border:"1px solid "+C.border,borderRadius:5,fontSize:11,fontFamily:"inherit",background:C.inputBg,outline:"none",minWidth:100}
+    })
+  ), /*#__PURE__*/React.createElement("select", {
     value: filtroRSt,
     onChange: e => setFiltroRSt(e.target.value),
     style: {
@@ -3614,6 +3640,10 @@ function App() {
   (() => {
     const misAprobadas = registros.filter(r => {
       if (r.estado !== "aprobado") return false;
+      // Excluir certificadas y finalizadas → van a Archivadas
+      const _lns = r.lineasGrupo || [];
+      const _allAp = _lns.length > 0 && _lns.every(l => l.certifAprobada);
+      if (r.estadoCertif === "finalizado" || _allAp) return false;
       const _abbrMap = {'JSF':'Jordi Santos','YLS':'Yennyfer Lemus','DRF':'Daniel','ILS':'Ignacio López'};
       const _userNames = new Set([user?.nombre, user?.id, ...Object.entries(_abbrMap).filter(([,v])=>v===user?.nombre).map(([k])=>k)].filter(Boolean));
       if (!_userNames.has(r.trabajador) && !_userNames.has(r.creadoPor)) return false;
@@ -3783,18 +3813,19 @@ function App() {
       );
     });
   })()
+)
 , view === "archivadas" && /*#__PURE__*/React.createElement(React.Fragment, null,
   /*#__PURE__*/React.createElement("h2", { style: { fontSize: 17, fontWeight: 700, marginBottom: 4 } }, "Archivadas"),
   /*#__PURE__*/React.createElement("p", { style: { fontSize: 12, color: C.muted, marginBottom: 14 } }, "Actividades finalizadas — proceso completado"),
   (() => {
-    const _abbrMap = {"JSF":"Jordi Santos","YLS":"Yennyfer Lemus","DRF":"Daniel","ILS":"Ignacio López"};
+    const _abbrMap = {"JSF":"Jordi Santos","YLS":"Yennyfer Lemus","DRF":"Daniel","ILS":"Ignacio López","CGR":"Carlos García"};
     const _userNames = new Set([user?.nombre, user?.id, ...Object.entries(_abbrMap).filter(([,v])=>v===user?.nombre).map(([k])=>k)].filter(Boolean));
     const archivadas = registros.filter(r => {
       if (!isAdmin && !_userNames.has(r.trabajador) && !_userNames.has(r.creadoPor)) return false;
       const lineas = r.lineasGrupo || [];
       const allAprob = lineas.length > 0 && lineas.every(l => l.certifAprobada);
-      return r.estadoCertif === "finalizado" || allAprob;
-    }).sort((a,b) => b.fecha.localeCompare(a.fecha));
+      return r.estadoCertif === "finalizado" || allAprob || r.estado === "aprobado";
+    }).sort((a,b) => (b.fecha||"").localeCompare(a.fecha||""));
     if (!archivadas.length) return /*#__PURE__*/React.createElement("div", {
       style: { textAlign: "center", color: C.muted, padding: "40px 0", fontSize: 13 }
     }, "No hay actividades archivadas");
@@ -3857,7 +3888,7 @@ function App() {
       })
     );
   })()
-)), view === "informes" && isAdmin && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h2", {
+), view === "informes" && isAdmin && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h2", {
     style: {
       fontSize: 17,
       fontWeight: 700,
@@ -8991,11 +9022,16 @@ function App() {
             var nomMes=["","Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"][Number(mm)]||mes;
             var totalH=sups.reduce(function(a,s){return a+Number(s.horasOrig||s.horas||0);},0);
             return React.createElement("div",{key:mes,style:{marginBottom:14}},
-              React.createElement("div",{style:{background:"#1c3e5e",color:"#fff",borderRadius:"8px 8px 0 0",padding:"7px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}},
+              React.createElement("div",{
+                onClick:function(){setCollapsedMeses(function(p){var n=Object.assign({},p);n[mes]=!n[mes];return n;});},
+                style:{background:"#1c3e5e",color:"#fff",borderRadius:collapsedMeses[mes]?"8px":"8px 8px 0 0",padding:"7px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",userSelect:"none"}},
                 React.createElement("span",{style:{fontWeight:700,fontSize:13}},nomMes+" "+yy),
-                React.createElement("span",{style:{fontSize:11,opacity:.85}},sups.length+" supervisiones \u00B7 "+totalH+"h")
+                React.createElement("div",{style:{display:"flex",gap:10,alignItems:"center"}},
+                  React.createElement("span",{style:{fontSize:11,opacity:.85}},sups.length+" supervisiones · "+totalH+"h"),
+                  React.createElement("span",{style:{fontSize:12,opacity:.7}},collapsedMeses[mes]?"▼":"▲")
+                )
               ),
-              React.createElement("div",{style:{border:"1px solid #dde2e8",borderTop:"none",borderRadius:"0 0 8px 8px",overflow:"hidden"}},
+              !collapsedMeses[mes] && React.createElement("div",{style:{border:"1px solid #dde2e8",borderTop:"none",borderRadius:"0 0 8px 8px",overflow:"hidden"}},
                 sups.map(function(s,i){
                   var horasVis=s.horasOrig!=null?s.horasOrig:s.horas;
                   var bg=i%2===0?"#fff":"#f5f8fc";
