@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang='es'><head><meta charset='UTF-8'/><meta name='viewport' content='width=device-width,initial-scale=1.0'/><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/><meta http-equiv="Pragma" content="no-cache"/><meta http-equiv="Expires" content="0"/><title>NorAcua Suite v2.6</title>
+<!DOCTYPE html><html lang='es'><head><meta charset='UTF-8'/><meta name='viewport' content='width=device-width,initial-scale=1.0'/><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/><meta http-equiv="Pragma" content="no-cache"/><meta http-equiv="Expires" content="0"/><title>NorAcua Suite v2.7</title>
 <script src='https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js'></script>
 <script src='https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js'></script>
 <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Segoe UI',-apple-system,sans-serif;background:#f4f6f8;}</style>
@@ -83,7 +83,7 @@ async function autoBackup(datos) {
     Object.keys(localStorage).filter(k => k.startsWith('na_autobk_na-backup-')).sort().reverse().slice(7).forEach(k => localStorage.removeItem(k));
   } catch(e) { console.warn('[NorAcua] autoBackup error:', e.message); }
 }
-const APP_VERSION = "2.6";
+const APP_VERSION = "2.7";
 if (typeof window !== "undefined" && window.localStorage) {
   const lastLoad = window.localStorage.getItem("na_lastload");
   const now = Date.now();
@@ -1714,11 +1714,13 @@ function App() {
   const [deletedRegIds, setDeletedRegIds] = useState(new Set());
   const [concs, setConcs] = useState([]);
   const [trabs, setTrabs] = useState(["Daniel", "Jordi Santos", "Yennyfer Lemus", "Técnico NorAcua"]);
-  // HSSE v2.6
+  // HSSE v2.7
   const [hsseSups, setHsseSups] = useState([]);
   const [hsseHist, setHsseHist] = useState([]);
   const [hsseCfg, setHsseCfg] = useState({tiposActividad:["Obra menor mantenimiento","Itinerante","Obra menor","Obra mayor"],preciosPorZona:{},tecnicosExternos:[],poAnual:"",clienteIdBP:""});
   const [viewH, setViewH] = useState("registro");
+  const [hsseMisCollapsed, setHsseMisCollapsed] = useState(new Set());
+  const toggleHsseMes = m => setHsseMisCollapsed(s => { const n = new Set(s); n.has(m) ? n.delete(m) : n.add(m); return n; });
   const [filtroHDesde, setFiltroHDesde] = useState("");
   const [filtroHHasta, setFiltroHHasta] = useState("");
   const [mHsseReg, setMHsseReg] = useState(false);
@@ -9127,7 +9129,7 @@ function App() {
         hsseSups.filter(function(s){
           var names=new Set([user&&user.nombre,user&&user.id].filter(Boolean));
           if(!names.has(s.supervisor)&&!names.has(s.creadoPor))return false;
-          if(s.estado==="aprobado")return false;
+          if(s.estado!=="pendiente")return false;
           if(filtroHDesde&&s.fecha<filtroHDesde)return false;
           if(filtroHHasta&&s.fecha>filtroHHasta)return false;
           return true;
@@ -9162,69 +9164,120 @@ function App() {
         }),
         hsseSups.filter(function(s){
           var names=new Set([user&&user.nombre,user&&user.id].filter(Boolean));
-          return (names.has(s.supervisor)||names.has(s.creadoPor))&&s.estado!=="aprobado";
-        }).length===0&&React.createElement("div",{style:{textAlign:"center",padding:30,color:"#8a9199"}},"No hay supervisiones pendientes.")
+          return (names.has(s.supervisor)||names.has(s.creadoPor))&&s.estado==="pendiente";
+        }).length===0&&React.createElement("div",{style:{textAlign:"center",padding:30,color:"#8a9199"}},"No tienes supervisiones pendientes de revisión.")
       )
     ),
 
     viewH==="revision" && React.createElement(React.Fragment, null,
-      React.createElement("h2",{style:{fontSize:17,fontWeight:700,marginBottom:12}},"Mis supervisiones aprobadas"),
+      React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}},
+        React.createElement("h2",{style:{fontSize:17,fontWeight:700}},"Mis supervisiones"),
+        
+      ),
       (function(){
         var names=new Set([user&&user.nombre,user&&user.id].filter(Boolean));
-        var mias=hsseSups.filter(function(s){return (names.has(s.supervisor)||names.has(s.creadoPor))&&s.estado==="aprobado";}).sort(function(a,b){return(b.fecha||"").localeCompare(a.fecha||"");});
-        if(mias.length===0)return React.createElement("div",{style:{textAlign:"center",padding:30,color:"#8a9199"}},"No tienes supervisiones aprobadas a\u00FAn.");
-        var porMes={};
-        mias.forEach(function(s){var mes=s.fecha?s.fecha.substring(0,7):"";if(!porMes[mes])porMes[mes]=[];porMes[mes].push(s);});
-        return React.createElement(React.Fragment,null,
-          Object.entries(porMes).sort(function(a,b){return b[0].localeCompare(a[0]);}).map(function(entry){
-            var mes=entry[0];var sups=entry[1];
-            var mm=mes.substring(5,7);
-            var yy=mes.substring(0,4);
-            var nomMes=["","Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"][Number(mm)]||mes;
-            var totalH=sups.reduce(function(a,s){return a+Number(s.horasOrig||s.horas||0);},0);
-            return React.createElement("div",{key:mes,style:{marginBottom:14}},
+        var mias=hsseSups.filter(function(s){
+          return (names.has(s.supervisor)||names.has(s.creadoPor))&&s.estado!=="pendiente";
+        }).sort(function(a,b){return(b.fecha||"").localeCompare(a.fecha||"");});
+        if(mias.length===0)return React.createElement("div",{style:{textAlign:"center",padding:40,color:"#8a9199"}},"Aún no tienes supervisiones aprobadas ni rechazadas.");
+        // Agrupar por mes
+        var mesesNombres=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+        var meses={};
+        mias.forEach(function(s){
+          var key=(s.fecha||"").slice(0,7);
+          if(!meses[key])meses[key]=[];
+          meses[key].push(s);
+        });
+        var mesesOrdenados=Object.keys(meses).sort(function(a,b){return b.localeCompare(a);});
+        return React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8}},
+          mesesOrdenados.map(function(mesKey){
+            var partes=mesKey.split("-");
+            var label=mesesNombres[parseInt(partes[1],10)-1]+" "+partes[0];
+            var regs=meses[mesKey];
+            var aprobadas=regs.filter(function(s){return s.estado==="aprobado"||s.estadoFact==="facturado";});
+            var rechazadas=regs.filter(function(s){return s.estado!=="aprobado"&&s.estadoFact!=="facturado";});
+            var horasAp=aprobadas.reduce(function(acc,s){return acc+(Number(s.horas)||0);},0);
+            var horasRech=rechazadas.reduce(function(acc,s){return acc+(Number(s.horas)||0);},0);
+            var horasTotal=horasAp+horasRech;
+            var isCollapsed=hsseMisCollapsed.has(mesKey);
+            return React.createElement("div",{key:mesKey,style:{borderRadius:8,border:"1px solid #dde2e8",overflow:"hidden"}},
               React.createElement("div",{
-                onClick:function(){setCollapsedMeses(function(p){var n=Object.assign({},p);n[mes]=!n[mes];return n;});},
-                style:{background:"#1c3e5e",color:"#fff",borderRadius:collapsedMeses[mes]?"8px":"8px 8px 0 0",padding:"7px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",userSelect:"none"}},
-                React.createElement("span",{style:{fontWeight:700,fontSize:13}},nomMes+" "+yy),
+                onClick:function(){toggleHsseMes(mesKey);},
+                style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",cursor:"pointer",
+                  background:isCollapsed?"#f9fafb":"#1c3e5e",borderBottom:isCollapsed?"none":"1px solid #dde2e8"}
+              },
                 React.createElement("div",{style:{display:"flex",gap:10,alignItems:"center"}},
-                  React.createElement("span",{style:{fontSize:11,opacity:.85}},sups.length+" supervisiones · "+totalH+"h"),
-                  React.createElement("span",{style:{fontSize:12,opacity:.7}},collapsedMeses[mes]?"▼":"▲")
-                )
+                  React.createElement("span",{style:{fontWeight:700,fontSize:13,color:isCollapsed?"#1c3e5e":"#fff"}},label),
+                  React.createElement("span",{style:{fontSize:11,color:isCollapsed?"#8a9199":"rgba(255,255,255,0.7)",background:isCollapsed?"#eee":"rgba(255,255,255,0.15)",padding:"1px 8px",borderRadius:10}},regs.length+" sup · "+horasTotal+"h"),
+                  aprobadas.length>0&&React.createElement("span",{style:{fontSize:11,color:isCollapsed?"#059669":"#86efac",fontWeight:600}},"\u2713 "+aprobadas.length+" ("+horasAp+"h)"),
+                  rechazadas.length>0&&React.createElement("span",{style:{fontSize:11,color:isCollapsed?"#d03030":"#fca5a5",fontWeight:600}},"\u2715 "+rechazadas.length)
+                ),
+                React.createElement("span",{style:{fontSize:11,color:isCollapsed?"#8a9199":"#fff"}},isCollapsed?"\u25BC Expandir":"\u25B2 Colapsar")
               ),
-              !collapsedMeses[mes] && React.createElement("div",{style:{border:"1px solid #dde2e8",borderTop:"none",borderRadius:"0 0 8px 8px",overflow:"hidden"}},
-                sups.map(function(s,i){
-                  var horasVis=s.horasOrig!=null?s.horasOrig:s.horas;
-                  var bg=i%2===0?"#fff":"#f5f8fc";
-                  return React.createElement("div",{key:s.id,style:{background:bg,padding:"8px 14px",borderBottom:i<sups.length-1?"1px solid #f0f0f0":"none",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}},
-                    React.createElement("div",{style:{flex:1}},
-                      React.createElement("div",{style:{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}},
-                        React.createElement("span",{style:{fontWeight:700,fontSize:12}},s.site||"Sin site"),
-                        React.createElement("span",{style:{fontSize:11,color:"#8a9199"}},"·"),
-                        React.createElement("span",{style:{fontSize:11,color:"#555e66"}},s.tipoActividad||"\u2014"),
-                        s.incidencias==="S\u00ED"&&React.createElement("span",{style:{fontSize:10,color:"#d03030",fontWeight:600}},"\u26A0 Incidencia")
-                      ),
-                      React.createElement("div",{style:{fontSize:10,color:"#8a9199",marginTop:2,display:"flex",gap:8,flexWrap:"wrap"}},
-                        React.createElement("span",null,s.fecha?s.fecha.substring(8,10)+"/"+s.fecha.substring(5,7):"\u2014"),
-                        s.zona&&React.createElement("span",null,"\u00B7 "+s.zona),
-                        React.createElement("span",null,"\u00B7 "+horasVis+"h"),
-                        s.empresa&&React.createElement("span",null,"\u00B7 "+s.empresa)
-                      ),
-                      (s.motivoSupervision||s.comentarios)&&React.createElement("div",{style:{fontSize:10,color:"#777",marginTop:2}},
-                        s.motivoSupervision&&React.createElement("span",null,s.motivoSupervision),
-                        s.motivoSupervision&&s.comentarios&&React.createElement("span",{style:{color:"#ccc"}}," \u00B7 "),
-                        s.comentarios&&React.createElement("span",null,s.comentarios)
+              !isCollapsed&&React.createElement("div",{style:{padding:"10px 12px"}},
+                // Bloque aprobadas
+                aprobadas.length>0&&React.createElement("div",{style:{marginBottom:rechazadas.length>0?14:0}},
+                  React.createElement("div",{style:{fontSize:10,fontWeight:700,color:"#059669",textTransform:"uppercase",letterSpacing:1,marginBottom:6}},"\u2713 Aprobadas ("+aprobadas.length+")"),
+                  aprobadas.map(function(s){
+                    var horasVis=s.horasOrig!=null?s.horasOrig:s.horas;
+                    return React.createElement("div",{key:s.id,style:{background:"#f0fdf4",borderRadius:8,border:"1px solid #bbf7d0",padding:"8px 12px",marginBottom:4}},
+                      React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}},
+                        React.createElement("div",{style:{flex:1}},
+                          React.createElement("div",{style:{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:2}},
+                            React.createElement("span",{style:{fontWeight:700,fontSize:12,color:"#065f46"}},s.site||"Sin site"),
+                            s.tipoActividad&&React.createElement("span",{style:{fontSize:11,color:"#8a9199"}},"\u00B7 "+s.tipoActividad)
+                          ),
+                          React.createElement("div",{style:{fontSize:11,color:"#8a9199",display:"flex",gap:8,flexWrap:"wrap"}},
+                            React.createElement("span",null,s.fecha?s.fecha.substring(8,10)+"/"+s.fecha.substring(5,7)+"/"+s.fecha.substring(0,4):"—"),
+                            s.zona&&React.createElement("span",null,"\u00B7 "+s.zona),
+                            s.empresa&&React.createElement("span",{style:{color:"#1c3e5e",fontWeight:600}},"\u00B7 "+s.empresa),
+                            React.createElement("span",{style:{fontWeight:600,color:"#059669"}},"\u00B7 "+horasVis+"h"),
+                            s.incidencias==="Sí"&&React.createElement("span",{style:{color:"#d03030",fontWeight:600}},"\u26A0 Incidencia")
+                          ),
+                          (s.motivoSupervision||s.comentarios)&&React.createElement("div",{style:{marginTop:4,fontSize:11,color:"#555e66",display:"flex",gap:8,flexWrap:"wrap"}},
+                            s.motivoSupervision&&React.createElement("span",null,"Motivo: "+s.motivoSupervision),
+                            s.comentarios&&React.createElement("span",null,"\u00B7 "+s.comentarios)
+                          )
+                        ),
+                        
                       )
-                    ),
-                    React.createElement("div",{style:{fontSize:10,fontWeight:700,color:"#1a9e7a",background:"rgba(26,158,122,0.10)",padding:"2px 7px",borderRadius:10,whiteSpace:"nowrap"}},"Aprobada")
-                  );
-                })
+                    );
+                  })
+                ),
+                // Bloque rechazadas
+                rechazadas.length>0&&React.createElement("div",null,
+                  React.createElement("div",{style:{fontSize:10,fontWeight:700,color:"#d03030",textTransform:"uppercase",letterSpacing:1,marginBottom:6}},"\u2715 Rechazadas/Anuladas ("+rechazadas.length+")"),
+                  rechazadas.map(function(s){
+                    var horasVis=s.horasOrig!=null?s.horasOrig:s.horas;
+                    return React.createElement("div",{key:s.id,style:{background:"#fff5f5",borderRadius:8,border:"1px solid #fecaca",padding:"8px 12px",marginBottom:4}},
+                      React.createElement("div",{style:{flex:1}},
+                        React.createElement("div",{style:{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:2}},
+                          React.createElement("span",{style:{fontWeight:700,fontSize:12,color:"#991b1b"}},s.site||"Sin site"),
+                          s.tipoActividad&&React.createElement("span",{style:{fontSize:11,color:"#8a9199"}},"\u00B7 "+s.tipoActividad),
+                          React.createElement("span",{style:{fontSize:10,fontWeight:700,color:"#d03030",background:"#fee2e2",padding:"1px 6px",borderRadius:4}},"Rechazada")
+                        ),
+                        React.createElement("div",{style:{fontSize:11,color:"#8a9199",display:"flex",gap:8,flexWrap:"wrap"}},
+                          React.createElement("span",null,s.fecha?s.fecha.substring(8,10)+"/"+s.fecha.substring(5,7)+"/"+s.fecha.substring(0,4):"—"),
+                          s.zona&&React.createElement("span",null,"\u00B7 "+s.zona),
+                          s.empresa&&React.createElement("span",{style:{color:"#1c3e5e",fontWeight:600}},"\u00B7 "+s.empresa),
+                          React.createElement("span",null,"\u00B7 "+horasVis+"h")
+                        ),
+                        (s.motivoSupervision||s.comentarios||s.motivoRechazo)&&React.createElement("div",{style:{marginTop:4,fontSize:11,color:"#991b1b",display:"flex",gap:8,flexWrap:"wrap"}},
+                          s.motivoRechazo&&React.createElement("span",{style:{fontWeight:600}},"Motivo rechazo: "+s.motivoRechazo),
+                          s.motivoSupervision&&!s.motivoRechazo&&React.createElement("span",null,"Motivo: "+s.motivoSupervision),
+                          s.comentarios&&React.createElement("span",null,"\u00B7 "+s.comentarios)
+                        )
+                      )
+                    );
+                  })
+                )
               )
             );
           })
         );
       })()
     ),
+
 
     (mHsseReg||mHsseEdit) && React.createElement(Modal, {
       open: true,
