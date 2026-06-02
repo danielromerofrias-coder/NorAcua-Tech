@@ -55,12 +55,40 @@ async function ld(key, fb) {
     return fb;
   }
 }
+// Snapshot de referencia inmutable — se guarda al login
+window._naRefSnapshot = window._naRefSnapshot || {};
+function updateRefSnapshot(key, data) {
+  if (Array.isArray(data) && data.length > 0) {
+    if (!window._naRefSnapshot[key] || window._naRefSnapshot[key].length < data.length) {
+      window._naRefSnapshot[key] = data;
+    }
+  }
+}
 async function sv(key, d) {
   try {
     if (typeof window.storage === "undefined") return;
+    if (Array.isArray(d)) {
+      const ref = window._naRefSnapshot[key] || (() => {
+        try { const b = localStorage.getItem('na_bk_' + key); return b ? JSON.parse(b) : null; } catch(e) { return null; }
+      })();
+      if (ref && Array.isArray(ref) && ref.length > 5) {
+        if (d.length === 0) {
+          console.warn('[NorAcua] GUARD BLOQUEADO (técnico): intento de vaciar', key, '(ref tiene', ref.length, 'items)');
+          return;
+        }
+        if (d.length < ref.length * 0.5 && ref.length > 10) {
+          console.warn('[NorAcua] GUARD BLOQUEADO (técnico): reducción sospechosa', key, ref.length, '→', d.length);
+          return;
+        }
+      }
+      if (d.length > 0) updateRefSnapshot(key, d);
+    }
     await window.storage.set(key, JSON.stringify(d));
+    if (Array.isArray(d) && d.length > 0) {
+      try { localStorage.setItem('na_bk_' + key, JSON.stringify(d)); } catch(e) {}
+    }
   } catch (e) {
-    console.error(e);
+    console.error('[NorAcua] sv error:', e);
   }
 }
 async function autoBackup(datos) {
@@ -896,6 +924,7 @@ function Btn({
       color: "#fff"
     }
   };
+
   return /*#__PURE__*/React.createElement("button", {
     style: {
       ...base,
@@ -1702,6 +1731,10 @@ function App() {
   const [buzon, setBuzon] = useState([]);
   const [showBuzon, setShowBuzon] = useState(false);
   const [lastLogin, setLastLogin] = useState(null);
+  const [autoLogoutWarn, setAutoLogoutWarn] = useState(false);
+  const _lastActivityRef = useRef(Date.now());
+  const INACTIVITY_WARN_MS = 25 * 60 * 1000;  // 25 min → aviso
+  const INACTIVITY_LOGOUT_MS = 30 * 60 * 1000; // 30 min → cierre
   const keyRef = useRef(null);
   const [hashesReady, setHashesReady] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -2086,7 +2119,8 @@ function App() {
       try {
         const bkData = {};
         const bkKeys = ['na-v20-proyectos','na-v20-registros','na-v21-facturas','na-v21-ofertas',
-          'na-v20-clientes','na-v20-trabajadores','na-v20-responsables','na-v20-estaciones','na-v20-series'];
+          'na-v20-clientes','na-v20-trabajadores','na-v20-responsables','na-v20-estaciones','na-v20-series',
+          'na-v25-hsse-sups','na-v25-hsse-cfg','na-v20-historico'];
         for (const k of bkKeys) {
           const r = await window.storage.get(k).catch(()=>null);
           if (r?.value) { try { bkData[k] = JSON.parse(r.value); } catch { bkData[k] = r.value; } }
@@ -3065,6 +3099,26 @@ function App() {
     l: "Ofertas",
     i: P.offer
   }] : []), {k: "hsse", l: "HSSE", i: P.eye}];
+  // Auto-logout por inactividad
+  useEffect(() => {
+    if (fase !== "app") return;
+    const resetTimer = () => { _lastActivityRef.current = Date.now(); setAutoLogoutWarn(false); };
+    const events = ["mousedown","mousemove","keydown","touchstart","scroll","click"];
+    events.forEach(e => window.addEventListener(e, resetTimer, { passive: true }));
+    const interval = setInterval(() => {
+      const idle = Date.now() - _lastActivityRef.current;
+      if (idle >= INACTIVITY_LOGOUT_MS) {
+        events.forEach(e => window.removeEventListener(e, resetTimer));
+        clearInterval(interval);
+        setFase("login"); setUser(null); setAutoLogoutWarn(false);
+        alert("Sesión cerrada automáticamente por inactividad (30 min).");
+      } else if (idle >= INACTIVITY_WARN_MS) {
+        setAutoLogoutWarn(true);
+      }
+    }, 30000); // revisar cada 30s
+    return () => { events.forEach(e => window.removeEventListener(e, resetTimer)); clearInterval(interval); };
+  }, [fase]);
+
   if (fase === "login" || !user) {
     return /*#__PURE__*/React.createElement("div", {
       style: {
@@ -3177,7 +3231,21 @@ function App() {
       minHeight: "100vh",
       color: C.text
     }
-  }, /*#__PURE__*/React.createElement("div", {
+  },
+        autoLogoutWarn && fase === "app" && /*#__PURE__*/React.createElement("div", {
+      style: { position: "fixed", bottom: 16, left: "50%", transform: "translateX(-50%)",
+        background: "#d48a10", color: "#fff", padding: "10px 20px", borderRadius: 8,
+        fontSize: 13, fontWeight: 600, zIndex: 9999, display: "flex", gap: 12, alignItems: "center",
+        boxShadow: "0 4px 16px rgba(0,0,0,.2)" }
+    },
+      /*#__PURE__*/React.createElement("span", null, "⚠️ Sesión inactiva — se cerrará en 5 minutos"),
+      /*#__PURE__*/React.createElement("button", {
+        onClick: () => { _lastActivityRef.current = Date.now(); setAutoLogoutWarn(false); },
+        style: { background: "#fff", color: "#d48a10", border: "none", borderRadius: 5,
+          padding: "4px 12px", cursor: "pointer", fontWeight: 700, fontSize: 12 }
+      }, "Seguir activo")
+    ),
+/*#__PURE__*/React.createElement("div", {
     style: {
       background: C.card,
       borderBottom: `2px solid ${C.primary}`,
