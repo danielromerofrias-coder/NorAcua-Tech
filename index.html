@@ -4,7 +4,7 @@
 <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Segoe UI',-apple-system,sans-serif;background:#f4f6f8;}</style>
 </head><body><div id='root'></div>
 <script>
-const SB_URL="https://lhmawivuxgekxleqvqle.supabase.co";const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxobWF3aXZ1eGdla3hsZXF2cWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MTY1NTYsImV4cCI6MjA5NDE5MjU1Nn0.frbxipEXiMfxsiRjo9rilHDiXoc3BqYGxOh-Qgq0VhU";const SK_TABLE_MAP={"na-v20-proyectos":"na_proyectos","na-v20-registros":"na_registros","na-v21-facturas":"na_facturas","na-v21-ofertas":"na_ofertas","na-v20-clientes":"na_clientes","na-v21-conceptos-enc":"na_conceptos","na-v20-trabajadores":"na_trabajadores","na-v20-responsables":"na_responsables","na-v20-estaciones":"na_estaciones","na-v20-series":"na_series","na-v21-cfg-ofertas":"na_cfg_ofertas","na-v20-historico":"na_historico","na-last-login":"na_cfg_ofertas","na-v21-conceptos-activos":"na_cfg_ofertas","na-backup-auto":"na_cfg_ofertas","na-v25-hsse-sups":"na_registros","na-v25-hsse-cfg":"na_cfg_ofertas"};const _sbFetch=async(path,opts={})=>{const r=await fetch(SB_URL+path,{...opts,headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json',...(opts.headers||{})}});if(!r.ok){const e=await r.text();console.error('SB error',r.status,e);return null;}const ct=r.headers.get('content-type')||'';return ct.includes('json')?r.json():null;};window.storage={get:async(key)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;const rows=await _sbFetch('/rest/v1/'+tbl+'?id=eq.'+encodeURIComponent(key)+'&select=data',{method:'GET'});const lsBk=localStorage.getItem('na_bk_'+key);if(!rows||rows.length===0){// Supabase empty - check local backup
+const SB_URL="https://lhmawivuxgekxleqvqle.supabase.co";const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxobWF3aXZ1eGdla3hsZXF2cWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MTY1NTYsImV4cCI6MjA5NDE5MjU1Nn0.frbxipEXiMfxsiRjo9rilHDiXoc3BqYGxOh-Qgq0VhU";const SK_TABLE_MAP={"na-v20-proyectos":"na_proyectos","na-v20-registros":"na_registros","na-v21-facturas":"na_facturas","na-v21-ofertas":"na_ofertas","na-v20-clientes":"na_clientes","na-v21-conceptos-enc":"na_conceptos","na-v20-trabajadores":"na_trabajadores","na-v20-responsables":"na_responsables","na-v20-estaciones":"na_estaciones","na-v20-series":"na_series","na-v21-cfg-ofertas":"na_cfg_ofertas","na-v20-historico":"na_historico","na-last-login":"na_cfg_ofertas","na-v21-conceptos-activos":"na_cfg_ofertas","na-backup-auto":"na_cfg_ofertas","na-v25-hsse-sups":"na_registros","na-v25-hsse-cfg":"na_cfg_ofertas","na-v25-hsse-hist":"na_cfg_ofertas"};const _sbFetch=async(path,opts={})=>{const r=await fetch(SB_URL+path,{...opts,headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json',...(opts.headers||{})}});if(!r.ok){const e=await r.text();console.error('SB error',r.status,e);return null;}const ct=r.headers.get('content-type')||'';return ct.includes('json')?r.json():null;};window.storage={get:async(key)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;const rows=await _sbFetch('/rest/v1/'+tbl+'?id=eq.'+encodeURIComponent(key)+'&select=data',{method:'GET'});const lsBk=localStorage.getItem('na_bk_'+key);if(!rows||rows.length===0){// Supabase empty - check local backup
 if(lsBk){console.warn('[NorAcua] Supabase vacío para '+key+', usando localStorage');return {key,value:lsBk};}return null;}// Ambos disponibles: si localStorage tiene MÁS items, la escritura Supabase falló (suspensión) — usar localStorage
 const sbData=rows[0].data;try{const sbArr=JSON.parse(sbData);const lsArr=lsBk?JSON.parse(lsBk):null;if(Array.isArray(sbArr)&&Array.isArray(lsArr)&&lsArr.length>sbArr.length){console.warn('[NorAcua] localStorage más reciente para '+key+' ('+lsArr.length+' vs '+sbArr.length+' items) — recuperando');return {key,value:lsBk};}}catch(e){}return {key,value:sbData};},set:async(key,value)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;// Save to localStorage backup first
 try{localStorage.setItem('na_bk_'+key,value);localStorage.setItem('na_bk_ts',new Date().toISOString());}catch(e){}await _sbFetch('/rest/v1/'+tbl,{method:'POST',body:JSON.stringify([{id:key,data:value,updated_at:new Date().toISOString()}]),headers:{'Prefer':'resolution=merge-duplicates,return=minimal'}});return {key,value};},delete:async(key)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;await _sbFetch('/rest/v1/'+tbl+'?id=eq.'+encodeURIComponent(key),{method:'DELETE'});return {key,deleted:true}}};
@@ -139,7 +139,8 @@ const SK = {
   cfgOfertas: "na-v21-cfg-ofertas",
   cActivos: "na-v21-conceptos-activos",
   hsseSups: "na-v25-hsse-sups",
-  hsseCfg: "na-v25-hsse-cfg"
+  hsseCfg: "na-v25-hsse-cfg",
+  hsseHist: "na-v25-hsse-hist"
 };
 const ZONAS = ["CENTRO", "NORTE", "CATALUÑA", "BALEARES", "OTROS"];
 const IVA_OPS = [{v:0,l:"0%"},{v:4,l:"4%"},{v:10,l:"10%"},{v:21,l:"21%"}];
@@ -1918,13 +1919,13 @@ function App() {
         }]));
         setUsrs(merged);
         setHashesReady(true);
-        const [p, r, t, rs, h, cl, se, fa, es, of, co, hsSup, hsCfg] = await Promise.all([ld(SK.proj, []), ld(SK.regs, []), ld(SK.trabs, ["Daniel", "Jordi Santos", "Yennyfer Lemus", "Técnico NorAcua", "Carlos García"]), ld(SK.resps, [{
+        const [p, r, t, rs, h, cl, se, fa, es, of, co, hsSup, hsCfg, hsHistLoaded] = await Promise.all([ld(SK.proj, []), ld(SK.regs, []), ld(SK.trabs, ["Daniel", "Jordi Santos", "Yennyfer Lemus", "Técnico NorAcua", "Carlos García"]), ld(SK.resps, [{
           nombre: "Concepción Gutierrez",
           sexo: "F"
         }, {
           nombre: "Daniel Romero",
           sexo: "M"
-        }]), ld(SK.hist, []), ld(SK.clientes, CLIENTES_DEF), ld(SK.series, SERIES_DEF), ld(SK.facturas, []), ld(SK.estaciones, []), ld(SK.ofertas, []).then(v => Array.isArray(v) ? v : Object.values(v || {})), ld(SK.cfgOfertas, CFG_OFERTAS_DEF), ld(SK.hsseSups, []), ld(SK.hsseCfg, {tiposActividad:["Obra menor mantenimiento","Itinerante","Obra menor","Obra mayor"],preciosPorZona:{},tecnicosExternos:[],poAnual:"",clienteIdBP:""})]);
+        }]), ld(SK.hist, []), ld(SK.clientes, CLIENTES_DEF), ld(SK.series, SERIES_DEF), ld(SK.facturas, []), ld(SK.estaciones, []), ld(SK.ofertas, []).then(v => Array.isArray(v) ? v : Object.values(v || {})), ld(SK.cfgOfertas, CFG_OFERTAS_DEF), ld(SK.hsseSups, []), ld(SK.hsseCfg, {tiposActividad:["Obra menor mantenimiento","Itinerante","Obra menor","Obra mayor"],preciosPorZona:{},tecnicosExternos:[],poAnual:"",clienteIdBP:""}), ld(SK.hsseHist, [])]);
         setProyectos(p);
         setRegistros(r);
         // FIX v2.7.1: garantizar siempre los 5 trabajadores base aunque Supabase tenga una lista antigua
@@ -1953,7 +1954,10 @@ function App() {
         setOfertas(of);
         setCfgOfertas(co);
         if(Array.isArray(hsSup))setHsseSups(hsSup);
-        if(hsCfg&&typeof hsCfg==="object"){var _h=hsCfg.hist;var _cfg=Object.assign({},hsCfg);delete _cfg.hist;setHsseCfg(function(c){return Object.assign({},c,_cfg);});if(Array.isArray(_h))setHsseHist(_h);}
+        if(hsCfg&&typeof hsCfg==="object"){var _h=hsCfg.hist;var _cfg=Object.assign({},hsCfg);delete _cfg.hist;delete _cfg.infCounter;setHsseCfg(function(c){return Object.assign({},c,_cfg);});}
+        // Hist: clave separada — migrar desde formato antiguo si necesario
+        var histToUse=Array.isArray(hsHistLoaded)&&hsHistLoaded.length>0?hsHistLoaded:(Array.isArray(hsCfg&&hsCfg.hist)?hsCfg.hist:[]);
+        if(histToUse.length>0)setHsseHist(histToUse);
       } catch (e) {
         console.error(e);
         setHashesReady(true);
@@ -2081,33 +2085,7 @@ function App() {
       })();
     }
   },[hsseSups,loading]);
-  useEffect(function(){
-    if(!loading){
-      (async function(){
-        try{
-          // Leer siempre desde Supabase ANTES de guardar para no sobreescribir config del admin
-          var fresh=await ld(SK.hsseCfg,null);
-          var freshObj=(fresh&&typeof fresh==="object")?fresh:{};
-          // Config: el admin manda — usamos valores del admin si existen
-          var safeConfig={
-            tiposActividad: freshObj.tiposActividad||hsseCfg.tiposActividad,
-            preciosPorZona: (freshObj.preciosPorZona&&Object.keys(freshObj.preciosPorZona).length>0)?freshObj.preciosPorZona:hsseCfg.preciosPorZona,
-            tecnicosExternos: freshObj.tecnicosExternos||hsseCfg.tecnicosExternos,
-            poAnual: freshObj.poAnual!=null?freshObj.poAnual:hsseCfg.poAnual,
-            clienteIdBP: freshObj.clienteIdBP!=null?freshObj.clienteIdBP:hsseCfg.clienteIdBP
-          };
-          // Hist: merge (los del admin + los locales que no estén ya)
-          var freshHist=Array.isArray(freshObj.hist)?freshObj.hist:[];
-          var myHistIds=new Set(hsseHist.map(function(h){return h.id;}));
-          var mergedHist=hsseHist.concat(freshHist.filter(function(h){return !myHistIds.has(h.id);}));
-          await sv(SK.hsseCfg,Object.assign({},safeConfig,{hist:mergedHist}));
-        }catch(e){
-          // Solo en error: guardar lo que tenemos localmente
-          await sv(SK.hsseCfg,Object.assign({},hsseCfg,{hist:hsseHist}));
-        }
-      })();
-    }
-  },[hsseCfg,hsseHist,loading]);
+  // Técnicos NO guardan hsseCfg ni hsseHist — solo el admin escribe la configuración y el historial HSSE
   // FIX v2.7.1: mantener referencia de estado actual para el handler visibilitychange
   // _naStateRef eliminado — tech no hace push de datos compartidos en visibilitychange
   // Refresh registros from Supabase when opening Archivadas tab (picks up admin approvals)
