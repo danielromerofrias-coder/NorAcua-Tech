@@ -2081,7 +2081,33 @@ function App() {
       })();
     }
   },[hsseSups,loading]);
-  useEffect(function(){if(!loading)sv(SK.hsseCfg,Object.assign({},hsseCfg,{hist:hsseHist}));},[hsseCfg,hsseHist,loading]);
+  useEffect(function(){
+    if(!loading){
+      (async function(){
+        try{
+          // Leer siempre desde Supabase ANTES de guardar para no sobreescribir config del admin
+          var fresh=await ld(SK.hsseCfg,null);
+          var freshObj=(fresh&&typeof fresh==="object")?fresh:{};
+          // Config: el admin manda — usamos valores del admin si existen
+          var safeConfig={
+            tiposActividad: freshObj.tiposActividad||hsseCfg.tiposActividad,
+            preciosPorZona: (freshObj.preciosPorZona&&Object.keys(freshObj.preciosPorZona).length>0)?freshObj.preciosPorZona:hsseCfg.preciosPorZona,
+            tecnicosExternos: freshObj.tecnicosExternos||hsseCfg.tecnicosExternos,
+            poAnual: freshObj.poAnual!=null?freshObj.poAnual:hsseCfg.poAnual,
+            clienteIdBP: freshObj.clienteIdBP!=null?freshObj.clienteIdBP:hsseCfg.clienteIdBP
+          };
+          // Hist: merge (los del admin + los locales que no estén ya)
+          var freshHist=Array.isArray(freshObj.hist)?freshObj.hist:[];
+          var myHistIds=new Set(hsseHist.map(function(h){return h.id;}));
+          var mergedHist=hsseHist.concat(freshHist.filter(function(h){return !myHistIds.has(h.id);}));
+          await sv(SK.hsseCfg,Object.assign({},safeConfig,{hist:mergedHist}));
+        }catch(e){
+          // Solo en error: guardar lo que tenemos localmente
+          await sv(SK.hsseCfg,Object.assign({},hsseCfg,{hist:hsseHist}));
+        }
+      })();
+    }
+  },[hsseCfg,hsseHist,loading]);
   // FIX v2.7.1: mantener referencia de estado actual para el handler visibilitychange
   // _naStateRef eliminado — tech no hace push de datos compartidos en visibilitychange
   // Refresh registros from Supabase when opening Archivadas tab (picks up admin approvals)
@@ -2185,6 +2211,15 @@ function App() {
     if (!lastLogin || !isAdmin) return [];
     const items = [];
     // Actividades nuevas desde último login
+    // Proyectos nuevos (solo los creados por otros, para que los técnicos también se enteren)
+    proyectos.filter(p => p.creadoEn && p.creadoEn > lastLogin && p.creadoPor && p.creadoPor !== (user?.nombre||"")).forEach(p => {
+      items.push({
+        tipo: "proyecto_nuevo", icon: "🏗", label: "Nuevo proyecto",
+        texto: `${p.creadoPor} ha creado el proyecto: ${p.nombre || "—"}`,
+        sub: `${p.estacion||""} ${p.zona?"· "+p.zona:""}`.trim(),
+        fecha: p.creadoEn, id: p.id
+      });
+    });
     registros.filter(r => r.createdAt && r.createdAt > lastLogin).forEach(r => {
       const p = proyectos.find(x => x.id === r.proyectoId);
       items.push({
@@ -2244,7 +2279,9 @@ function App() {
     if (!fPr.nombre || !fPr.zona) return;
     setProyectos(p => [...p, {
       ...fPr,
-      id: `p${Date.now()}`
+      id: `p${Date.now()}`,
+      creadoEn: new Date().toISOString(),
+      creadoPor: user?.nombre || user?.id || ""
     }]);
     if (fPr.estacion && !estaciones.includes(fPr.estacion)) setEstaciones(e => [...e, fPr.estacion].sort());
     setFPr(ep);
