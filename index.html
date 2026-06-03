@@ -4,8 +4,9 @@
 <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Segoe UI',-apple-system,sans-serif;background:#f4f6f8;}</style>
 </head><body><div id='root'></div>
 <script>
-const SB_URL="https://lhmawivuxgekxleqvqle.supabase.co";const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxobWF3aXZ1eGdla3hsZXF2cWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MTY1NTYsImV4cCI6MjA5NDE5MjU1Nn0.frbxipEXiMfxsiRjo9rilHDiXoc3BqYGxOh-Qgq0VhU";const SK_TABLE_MAP={"na-v20-proyectos":"na_proyectos","na-v20-registros":"na_registros","na-v21-facturas":"na_facturas","na-v21-ofertas":"na_ofertas","na-v20-clientes":"na_clientes","na-v21-conceptos-enc":"na_conceptos","na-v20-trabajadores":"na_trabajadores","na-v20-responsables":"na_responsables","na-v20-estaciones":"na_estaciones","na-v20-series":"na_series","na-v21-cfg-ofertas":"na_cfg_ofertas","na-v20-historico":"na_historico","na-last-login":"na_cfg_ofertas","na-v21-conceptos-activos":"na_cfg_ofertas","na-backup-auto":"na_cfg_ofertas","na-v25-hsse-sups":"na_registros","na-v25-hsse-cfg":"na_cfg_ofertas"};const _sbFetch=async(path,opts={})=>{const r=await fetch(SB_URL+path,{...opts,headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json',...(opts.headers||{})}});if(!r.ok){const e=await r.text();console.error('SB error',r.status,e);return null;}const ct=r.headers.get('content-type')||'';return ct.includes('json')?r.json():null;};window.storage={get:async(key)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;const rows=await _sbFetch('/rest/v1/'+tbl+'?id=eq.'+encodeURIComponent(key)+'&select=data',{method:'GET'});if(!rows||rows.length===0){// Supabase empty - check local backup
-const bk=localStorage.getItem('na_bk_'+key);if(bk){console.warn('[NorAcua] Supabase vacío para '+key+', usando backup local');return {key,value:bk};}return null;}return {key,value:rows[0].data};},set:async(key,value)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;// Save to localStorage backup first
+const SB_URL="https://lhmawivuxgekxleqvqle.supabase.co";const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxobWF3aXZ1eGdla3hsZXF2cWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MTY1NTYsImV4cCI6MjA5NDE5MjU1Nn0.frbxipEXiMfxsiRjo9rilHDiXoc3BqYGxOh-Qgq0VhU";const SK_TABLE_MAP={"na-v20-proyectos":"na_proyectos","na-v20-registros":"na_registros","na-v21-facturas":"na_facturas","na-v21-ofertas":"na_ofertas","na-v20-clientes":"na_clientes","na-v21-conceptos-enc":"na_conceptos","na-v20-trabajadores":"na_trabajadores","na-v20-responsables":"na_responsables","na-v20-estaciones":"na_estaciones","na-v20-series":"na_series","na-v21-cfg-ofertas":"na_cfg_ofertas","na-v20-historico":"na_historico","na-last-login":"na_cfg_ofertas","na-v21-conceptos-activos":"na_cfg_ofertas","na-backup-auto":"na_cfg_ofertas","na-v25-hsse-sups":"na_registros","na-v25-hsse-cfg":"na_cfg_ofertas"};const _sbFetch=async(path,opts={})=>{const r=await fetch(SB_URL+path,{...opts,headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json',...(opts.headers||{})}});if(!r.ok){const e=await r.text();console.error('SB error',r.status,e);return null;}const ct=r.headers.get('content-type')||'';return ct.includes('json')?r.json():null;};window.storage={get:async(key)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;const rows=await _sbFetch('/rest/v1/'+tbl+'?id=eq.'+encodeURIComponent(key)+'&select=data',{method:'GET'});const lsBk=localStorage.getItem('na_bk_'+key);if(!rows||rows.length===0){// Supabase empty - check local backup
+if(lsBk){console.warn('[NorAcua] Supabase vacío para '+key+', usando localStorage');return {key,value:lsBk};}return null;}// Ambos disponibles: si localStorage tiene MÁS items, la escritura Supabase falló (suspensión) — usar localStorage
+const sbData=rows[0].data;try{const sbArr=JSON.parse(sbData);const lsArr=lsBk?JSON.parse(lsBk):null;if(Array.isArray(sbArr)&&Array.isArray(lsArr)&&lsArr.length>sbArr.length){console.warn('[NorAcua] localStorage más reciente para '+key+' ('+lsArr.length+' vs '+sbArr.length+' items) — recuperando');return {key,value:lsBk};}}catch(e){}return {key,value:sbData};},set:async(key,value)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;// Save to localStorage backup first
 try{localStorage.setItem('na_bk_'+key,value);localStorage.setItem('na_bk_ts',new Date().toISOString());}catch(e){}await _sbFetch('/rest/v1/'+tbl,{method:'POST',body:JSON.stringify([{id:key,data:value,updated_at:new Date().toISOString()}]),headers:{'Prefer':'resolution=merge-duplicates,return=minimal'}});return {key,value};},delete:async(key)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;await _sbFetch('/rest/v1/'+tbl+'?id=eq.'+encodeURIComponent(key),{method:'DELETE'});return {key,deleted:true}}};
 const{useState,useEffect,useRef,useMemo,createElement}=React;
 
@@ -71,7 +72,7 @@ async function sv(key, d) {
       const ref = window._naRefSnapshot[key] || (() => {
         try { const b = localStorage.getItem('na_bk_' + key); return b ? JSON.parse(b) : null; } catch(e) { return null; }
       })();
-      if (ref && Array.isArray(ref) && ref.length > 5) {
+      if (ref && Array.isArray(ref) && ref.length > 0) {
         if (d.length === 0) {
           console.warn('[NorAcua] GUARD BLOQUEADO (técnico): intento de vaciar', key, '(ref tiene', ref.length, 'items)');
           return;
@@ -1926,7 +1927,10 @@ function App() {
         }]), ld(SK.hist, []), ld(SK.clientes, CLIENTES_DEF), ld(SK.series, SERIES_DEF), ld(SK.facturas, []), ld(SK.estaciones, []), ld(SK.ofertas, []).then(v => Array.isArray(v) ? v : Object.values(v || {})), ld(SK.cfgOfertas, CFG_OFERTAS_DEF), ld(SK.hsseSups, []), ld(SK.hsseCfg, {tiposActividad:["Obra menor mantenimiento","Itinerante","Obra menor","Obra mayor"],preciosPorZona:{},tecnicosExternos:[],poAnual:"",clienteIdBP:""})]);
         setProyectos(p);
         setRegistros(r);
-        setTrabs(t);
+        // FIX v2.7.1: garantizar siempre los 5 trabajadores base aunque Supabase tenga una lista antigua
+        const REQUIRED_TRABS = ["Daniel", "Jordi Santos", "Yennyfer Lemus", "Técnico NorAcua", "Carlos García"];
+        const mergedT = Array.isArray(t) ? [...new Set([...t, ...REQUIRED_TRABS])] : REQUIRED_TRABS;
+        setTrabs(mergedT);
         const rsMig = Array.isArray(rs) ? rs.map(x => typeof x === "string" ? {
           nombre: x,
           sexo: /^Dña\.?/.test(x) ? "F" : "M"
@@ -1962,8 +1966,38 @@ function App() {
     }, 5000);
     return () => clearTimeout(_t);
   }, []);
+  // FIX v2.7.1: re-sync al volver de suspensión
   useEffect(() => {
-    if (!loading) sv(SK.proj, proyectos);
+    const _onVisible = () => {
+      if (document.visibilityState === 'visible' && window._naWasHidden) {
+        window._naWasHidden = false;
+        const cur = window._naStateRef;
+        if (!cur) return;
+        console.log('[NorAcua] Página visible tras suspensión — re-sincronizando...');
+        // Técnicos NO pushean nada al volver — sus datos se salvan en tiempo real
+        // Push a ciegas aquí sobreescribiría cambios de otros usuarios en Supabase
+      } else if (document.visibilityState === 'hidden') {
+        window._naWasHidden = true;
+      }
+    };
+    document.addEventListener('visibilitychange', _onVisible);
+    return () => document.removeEventListener('visibilitychange', _onVisible);
+  }, []);
+  useEffect(() => {
+    if (!loading) {
+      (async () => {
+        try {
+          const fresh = await ld(SK.proj, null);
+          if (fresh && Array.isArray(fresh) && fresh.length > 0) {
+            const myIds = new Set(proyectos.map(p => p.id));
+            const merged = [...proyectos, ...fresh.filter(p => !myIds.has(p.id))];
+            await sv(SK.proj, merged);
+          } else {
+            await sv(SK.proj, proyectos);
+          }
+        } catch(e) { await sv(SK.proj, proyectos); }
+      })();
+    }
   }, [proyectos, loading]);
   useEffect(() => {
     if (!loading && user) {
@@ -2031,8 +2065,25 @@ function App() {
   useEffect(() => {
     if (!loading) sv(SK.cfgOfertas, cfgOfertas);
   }, [cfgOfertas, loading]);
-  useEffect(function(){if(!loading)sv(SK.hsseSups,hsseSups);},[hsseSups,loading]);
+  useEffect(function(){
+    if(!loading){
+      (async function(){
+        try{
+          var fresh=await ld(SK.hsseSups,null);
+          if(fresh&&Array.isArray(fresh)&&fresh.length>0){
+            var myIds=new Set(hsseSups.map(function(s){return s.id;}));
+            var merged=hsseSups.concat(fresh.filter(function(s){return !myIds.has(s.id);}));
+            await sv(SK.hsseSups,merged);
+          }else{
+            await sv(SK.hsseSups,hsseSups);
+          }
+        }catch(e){await sv(SK.hsseSups,hsseSups);}
+      })();
+    }
+  },[hsseSups,loading]);
   useEffect(function(){if(!loading)sv(SK.hsseCfg,Object.assign({},hsseCfg,{hist:hsseHist}));},[hsseCfg,hsseHist,loading]);
+  // FIX v2.7.1: mantener referencia de estado actual para el handler visibilitychange
+  // _naStateRef eliminado — tech no hace push de datos compartidos en visibilitychange
   // Refresh registros from Supabase when opening Archivadas tab (picks up admin approvals)
   useEffect(function(){
     if(view==="archivadas"&&!loading&&user){
@@ -2120,7 +2171,7 @@ function App() {
         const bkData = {};
         const bkKeys = ['na-v20-proyectos','na-v20-registros','na-v21-facturas','na-v21-ofertas',
           'na-v20-clientes','na-v20-trabajadores','na-v20-responsables','na-v20-estaciones','na-v20-series',
-          'na-v25-hsse-sups','na-v25-hsse-cfg','na-v20-historico'];
+          'na-v25-hsse-sups','na-v25-hsse-cfg','na-v20-historico','na-v21-conceptos-activos','na-v20-usuarios'];
         for (const k of bkKeys) {
           const r = await window.storage.get(k).catch(()=>null);
           if (r?.value) { try { bkData[k] = JSON.parse(r.value); } catch { bkData[k] = r.value; } }
@@ -7670,7 +7721,12 @@ function App() {
       style: { width: "100%", padding: "8px 11px", border: "1px solid " + C.border, borderRadius: 6, fontSize: 13, fontFamily: "inherit", background: C.inputBg, color: C.text }
     },
       /*#__PURE__*/React.createElement("option", { value: "" }, "— Seleccionar —"),
-      resps.map(r => /*#__PURE__*/React.createElement("option", { key: r.id || r.nombre, value: r.nombre }, r.nombre))
+      (function(){
+              var allNames = resps.map(function(r){return typeof r==="object"?r.nombre:r;}).filter(Boolean);
+              // Añadir responsables usados en proyectos que no estén ya en la lista
+              proyectos.forEach(function(p){if(p.responsableBP&&!allNames.includes(p.responsableBP))allNames.push(p.responsableBP);});
+              return allNames.sort().map(function(n){return /*#__PURE__*/React.createElement("option",{key:n,value:n},n);});
+            })()
     )
   ), /*#__PURE__*/React.createElement("div", {
     style: {
@@ -7796,7 +7852,12 @@ function App() {
       style: { width: "100%", padding: "8px 11px", border: "1px solid " + C.border, borderRadius: 6, fontSize: 13, fontFamily: "inherit", background: C.inputBg, color: C.text }
     },
       /*#__PURE__*/React.createElement("option", { value: "" }, "— Seleccionar —"),
-      resps.map(r => /*#__PURE__*/React.createElement("option", { key: r.id || r.nombre, value: r.nombre }, r.nombre))
+      (function(){
+              var allNames = resps.map(function(r){return typeof r==="object"?r.nombre:r;}).filter(Boolean);
+              // Añadir responsables usados en proyectos que no estén ya en la lista
+              proyectos.forEach(function(p){if(p.responsableBP&&!allNames.includes(p.responsableBP))allNames.push(p.responsableBP);});
+              return allNames.sort().map(function(n){return /*#__PURE__*/React.createElement("option",{key:n,value:n},n);});
+            })()
     )
   ), /*#__PURE__*/React.createElement("div", {
     style: {
