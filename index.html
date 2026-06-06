@@ -2010,17 +2010,32 @@ function App() {
           const fresh = await ld(SK.regs, null);
           if (fresh && fresh.length > 0) {
             // Tecnico only owns records created by or assigned to them
-            const myRegs = registros.filter(r =>
-              r.trabajador === user.nombre || r.creadoPor === user.nombre ||
-              r.trabajador === user.id || r.creadoPor === user.id
-            );
+            const myRegs = registros.filter(r => {
+              const isTrab = r.trabajador === user.nombre || r.trabajador === user.id;
+              const noTrab = !r.trabajador;
+              const isCreadoPor = r.creadoPor === user.nombre || r.creadoPor === user.id;
+              return isTrab || (noTrab && isCreadoPor);
+            });
             const myIds = new Set(myRegs.map(r => r.id));
             // For own records, keep admin's version if it has been approved/certified
+            // BUT also preserve local certifEnviada changes (tech's pending certification)
             const myRegsFinal = myRegs.map(r => {
               const freshR = fresh.find(f => f.id === r.id);
               if (freshR && (freshR.estado === 'aprobado' || freshR.estadoCertif === 'finalizado' ||
                   (freshR.lineasGrupo || []).some(l => l.certifAprobada))) {
-                return freshR; // preserve admin's approval
+                // Preserve admin's approval but overlay local certifEnviada if set
+                const base = { ...freshR };
+                if (r.certifEnviada) base.certifEnviada = r.certifEnviada;
+                if (r.lineasGrupo && freshR.lineasGrupo) {
+                  base.lineasGrupo = freshR.lineasGrupo.map((l, li) => {
+                    const localL = r.lineasGrupo?.[li];
+                    if (localL?.certifEnviada && !l.certifAprobada) {
+                      return { ...l, certifEnviada: true, certifEnviadaAt: localL.certifEnviadaAt, cantCertif: localL.cantCertif ?? l.cantidad };
+                    }
+                    return l;
+                  });
+                }
+                return base;
               }
               return r;
             });
@@ -2365,9 +2380,11 @@ function App() {
     estado: "pendiente"
   } : x));
   const certifyReg = (id) => {
+    // FIX: no cambiar a "certificado" directamente — el admin debe validar
+    // Marcamos certifEnviada:true para que aparezca en la Revisión del admin
     setRegistros(r => r.map(x => x.id === id ? {
       ...x,
-      estado: "certificado"
+      certifEnviada: true
     } : x));
   };
   const sPM = (id, v) => setRegistros(r => r.map(x => x.id === id ? {
@@ -3009,7 +3026,7 @@ function App() {
     if (!isAdmin) {
       const _abbrMap = {'JSF':'Jordi Santos','YLS':'Yennyfer Lemus','DRF':'Daniel','ILS':'Ignacio López'};
       const _userNames = new Set([user?.nombre, user?.id, ...Object.entries(_abbrMap).filter(([,v])=>v===user?.nombre).map(([k])=>k)].filter(Boolean));
-      r = r.filter(x => _userNames.has(x.trabajador) || _userNames.has(x.creadoPor));
+      r = r.filter(x => (_userNames.has(x.trabajador) && x.trabajador) || (!x.trabajador && _userNames.has(x.creadoPor)));
     }
     if (filtroRTrab) {
       const _abbrMap = {'JSF':'Jordi Santos','YLS':'Yennyfer Lemus','DRF':'Daniel','ILS':'Ignacio López'};
@@ -3028,6 +3045,8 @@ function App() {
       const allCertifOferta = lineas.length > 0 && lineas.every(l => l.certifOferta);
       if (x.estadoCertif === "finalizado" || allAprob || allCertifOferta) return false;
       if (x.estado === "aprobado" || x.estado === "ofertada" || x.estado === "certif_oferta") return false;
+      // Actividades con oferta asignada → van a Certificación
+      if (x.ofertaCodigo || (x.ofertaCodigos && x.ofertaCodigos.length > 0)) return false;
       return true;
     });
     r.sort((a, b) => {
@@ -3817,7 +3836,8 @@ function App() {
       // Incluir aprobadas (normales y vía oferta) — excluir certif_oferta y finalizadas → van a Archivadas
       const esAprobada = r.estado === "aprobado";
       const esOfertada = r.estado === "ofertada";
-      if (!esAprobada && !esOfertada) return false;
+      const tieneOferta = !!(r.ofertaCodigo || (r.ofertaCodigos && r.ofertaCodigos.length > 0));
+      if (!esAprobada && !esOfertada && !tieneOferta) return false;
       // Excluir completamente finalizadas → van a Archivadas
       const _lns = r.lineasGrupo || [];
       const _allAp = _lns.length > 0 && _lns.every(l => l.certifAprobada);
@@ -3825,7 +3845,7 @@ function App() {
       if (r.estadoCertif === "finalizado" || _allAp || _allCO) return false;
       const _abbrMap = {'JSF':'Jordi Santos','YLS':'Yennyfer Lemus','DRF':'Daniel','ILS':'Ignacio López','CGR':'Carlos García'};
       const _userNames = new Set([user?.nombre, user?.id, ...Object.entries(_abbrMap).filter(([,v])=>v===user?.nombre).map(([k])=>k)].filter(Boolean));
-      if (!_userNames.has(r.trabajador) && !_userNames.has(r.creadoPor)) return false;
+      if (!((_userNames.has(r.trabajador) && r.trabajador) || (!r.trabajador && _userNames.has(r.creadoPor)))) return false;
       if (filtroRTrab) {
         const _abbrRev = Object.fromEntries(Object.entries(_abbrMap).map(([k,v])=>[v,k]));
         if (r.trabajador !== filtroRTrab && r.trabajador !== _abbrRev[filtroRTrab]) return false;
