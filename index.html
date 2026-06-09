@@ -2018,12 +2018,18 @@ function App() {
             });
             const myIds = new Set(myRegs.map(r => r.id));
             // For own records, keep admin's version if it has been approved/certified
+            // OR if admin has reverted certification (local was certified, fresh is not)
             // BUT also preserve local certifEnviada changes (tech's pending certification)
             const myRegsFinal = myRegs.map(r => {
               const freshR = fresh.find(f => f.id === r.id);
-              if (freshR && (freshR.estado === 'aprobado' || freshR.estadoCertif === 'finalizado' ||
-                  (freshR.lineasGrupo || []).some(l => l.certifAprobada))) {
-                // Preserve admin's approval but overlay local certifEnviada if set
+              if (!freshR) return r;
+              // Detect admin revert: local was certified but fresh isn't
+              const localCertified = r.estadoCertif === 'finalizado' || (r.lineasGrupo||[]).some(l => l.certifAprobada);
+              const freshCertified = freshR.estadoCertif === 'finalizado' || (freshR.lineasGrupo||[]).some(l => l.certifAprobada);
+              const adminReverted = localCertified && !freshCertified;
+              if (freshR.estado === 'aprobado' || freshR.estadoCertif === 'finalizado' ||
+                  (freshR.lineasGrupo || []).some(l => l.certifAprobada) || adminReverted) {
+                // Preserve admin's version but overlay local certifEnviada if set
                 const base = { ...freshR };
                 if (r.certifEnviada) base.certifEnviada = r.certifEnviada;
                 if (r.lineasGrupo && freshR.lineasGrupo) {
