@@ -90,6 +90,14 @@ async function sv(key, d) {
     }
   } catch (e) {
     console.error('[NorAcua] sv error:', e);
+    // Mostrar error visible al usuario
+    const nombre = typeof key === "string" ? key.replace(/na-v2.-/g,"") : key;
+    const msg = '⚠️ ERROR AL GUARDAR "'+ nombre +'": los datos NO se han guardado en el servidor.\n\nPor favor NO cierres esta pestaña y avisa a soporte.'
+    + '\n\nError: ' + (e?.message || e);
+    if (!window._svErrorShown) {
+      window._svErrorShown = true;
+      setTimeout(() => { alert(msg); window._svErrorShown = false; }, 100);
+    }
   }
 }
 async function autoBackup(datos) {
